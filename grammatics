@@ -1,0 +1,13 @@
+GlobalStatement ::= FuncDeclaration | VarDeclaration ';'
+FuncDeclaration ::= Identifier ['('] [ParamLinker]+ [')'] ['{'] [Statement]* ['}']
+ParamLinker     ::= [VarDeclaration]*
+VarDeclaration  ::= Identifier ['='] Expression
+Statement       ::= Expression ';'
+
+
+int x = 0;
+
+int main()
+{
+    print(huy);
+}

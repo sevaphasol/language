@@ -1,0 +1,7 @@
+digraph G{
+rankdir=HR;
+node[style=filled, color="#756bb1", fillcolor="#a1d99b",fontcolor="#ba3d3d", fontsize=14];
+edge[color="#006d2c", fontsize=12, penwidth=1, fontcolor = "#49006a"];
+bgcolor="#bcbddc";
+elem0x7ecd36200030[shape="Mrecord", label= "{OPERATOR | val = 8}"];
+}
