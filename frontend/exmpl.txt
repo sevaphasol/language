@@ -1,11 +1,10 @@
-func main(var huy, var penisvar, var pisun, var pizda)
+sosal? krosovka b = 1
+
+sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)
 {
+    sosal? krosovka d = 1
 
-};
-
-func penis(var balls)
-{
-
-};
-
+    sosal? scan(a)
+    sosal? print(a)
+}
 

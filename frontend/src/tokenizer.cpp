@@ -10,6 +10,14 @@
 
 //———————————————————————————————————————————————————————————————————//
 
+#define _RED(str)       "\033[31m" str "\033[0m"
+#define _GREEN(str)     "\033[32m" str "\033[0m"
+#define _YELLOW(str)    "\033[33m" str "\033[0m"
+#define _BLUE(str)      "\033[34m" str "\033[0m"
+#define _PURPLE(str)    "\033[35m" str "\033[0m"
+#define _TURQUOISE(str) "\033[36m" str "\033[0m"
+
+//———————————————————————————————————————————————————————————————————//
 
 static node_t* get_token    (frontend_ctx_t* ctx);
 static node_t* get_str_node (frontend_ctx_t* ctx, const char* str);
@@ -22,7 +30,7 @@ lang_status_t tokenize(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
-    ctx->nodes[ctx->n_nodes++] = _OPERATOR(STATEMENT);
+    // ctx->nodes[ctx->n_nodes++] = _OPERATOR(STATEMENT);
 
     //-------------------------------------------------------------------//
 
@@ -32,17 +40,10 @@ lang_status_t tokenize(frontend_ctx_t* ctx)
     {
         node_t* cur_token_node = get_token(ctx);
 
-        if (cur_token_node)
-        {
-            ctx->nodes[ctx->n_nodes++] = cur_token_node;
-        }
+        VERIFY(!cur_token_node,
+               return LANG_GET_TOKEN_ERROR);
 
-        else
-        {
-            fprintf(stderr, "PIZDEC\n");
-
-            return LANG_GET_TOKEN_ERROR;
-        }
+        ctx->nodes[ctx->n_nodes++] = cur_token_node;
 
         while (isspace(*ctx->code))
         {
@@ -59,6 +60,13 @@ lang_status_t tokenize(frontend_ctx_t* ctx)
     //-------------------------------------------------------------------//
 
     return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+bool acceptable_symbol(char symbol)
+{
+    return (isalpha(symbol) || symbol == '_' || symbol == '?');
 }
 
 //===================================================================//
@@ -80,12 +88,12 @@ node_t* get_token(frontend_ctx_t* ctx)
     {
         char str[MaxStrLength] = {};
 
-        for (int i = 0; !isspace(*ctx->code) && isalpha(*ctx->code); i++)
+        for (int i = 0; acceptable_symbol(*ctx->code); i++)
         {
             str[i] = *(ctx->code++);
         }
 
-        // printf("%ld\n", strlen(str));
+        // printf("%s\n", str);
 
         return get_str_node(ctx, str);
     }
@@ -104,6 +112,16 @@ node_t* get_token(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
+    char buf[MaxStrLength];
+
+    fprintf(stderr, _RED("Syntax Error")". Line"
+                    _PURPLE(" %ld") ". "
+                    "Unknown operator "
+                    _TURQUOISE("%c\n"),
+                    ctx->cur_line, ctx->code[0]);
+
+    //-------------------------------------------------------------------//
+
     return nullptr;
 }
 
@@ -116,15 +134,14 @@ node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
 
     //-------------------------------------------------------------------//
 
-
     for (int i = 1; i < nOperators; i++)
     {
-        if (strcmp(OperatorsTable[i].name, str) == 0)
+        if (strncmp(OperatorsTable[i].name, str,
+            OperatorsTable[i].len) == 0)
         {
             return _OPERATOR(OperatorsTable[i].code);
         }
     }
-
 
     for (size_t id_index = 0; id_index < ctx->name_table.n_names; id_index++)
     {
@@ -135,7 +152,7 @@ node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
         // printf("%s - %s\n", str, ctx->name_table.table[id_index].name);
 
         if (strncmp(ctx->name_table.table[id_index].name, str,
-            ctx->name_table.table[id_index].len) == 0)
+            strlen(str)) == 0)
         {
             return _IDENTIFIER(id_index);
         }
@@ -151,5 +168,14 @@ node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
 
     return _IDENTIFIER(ctx->name_table.n_names - 1);
 }
+
+//———————————————————————————————————————————————————————————————————//
+
+#undef _RED
+#undef _GREEN
+#undef _YELLOW
+#undef _BLUE
+#undef _PURPLE
+#undef _TURQUOIS
 
 //———————————————————————————————————————————————————————————————————//
