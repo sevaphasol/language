@@ -1,3 +1,11 @@
-if (1) {
-    2
-}
+func main(var huy, var penisvar, var pisun, var pizda)
+{
+
+};
+
+func penis(var balls)
+{
+
+};
+
+

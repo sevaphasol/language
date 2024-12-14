@@ -5,8 +5,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include "lang.h"
+#include "../../frontend/include/frontend.h"
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -22,6 +24,12 @@ enum tree_dump_status_t
     TREE_DUMP_STRUCT_NULL_PTR_ERROR = 1,
     TREE_DUMP_FILE_OPEN_ERROR       = 2,
     TREE_DUMP_SYSTEM_COMMAND_ERROR  = 3,
+};
+
+enum dump_mode_t
+{
+    TREE = 0,
+    ARR  = 1,
 };
 
 //———————————————————————————————————————————————————————————————————//
@@ -40,7 +48,8 @@ const char* const EdgeFontColor       = "#49006a";
 
 //———————————————————————————————————————————————————————————————————//
 
-tree_dump_status_t graph_dump (size_t* n_dumps, node_t* node);
+tree_dump_status_t graph_dump (frontend_ctx_t* ctx,
+                               dump_mode_t mode);
 
 //———————————————————————————————————————————————————————————————————//
 

@@ -1,46 +1,60 @@
 #include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include "frontend.h"
 #include "custom_assert.h"
 #include "graph_dump.h"
+#include "node_allocator.h"
 
 //———————————————————————————————————————————————————————————————————//
 
-static lang_status_t parse_argv (const char** input_file_name,
-                                 const char** output_file_name,
-                                 int argc,
-                                 const char* argv[]);
+static lang_status_t parse_argv        (const char** input_file_name,
+                                        const char** output_file_name,
+                                        int argc,
+                                        const char* argv[]);
 
-static lang_status_t open_files (FILE**      input_file,
-                                 FILE**      output_file,
-                                 int         argc,
-                                 const char* argv[]);
+static lang_status_t open_files        (FILE**      input_file,
+                                        FILE**      output_file,
+                                        int         argc,
+                                        const char* argv[]);
+
+static lang_status_t frontend_ctx_ctor (frontend_ctx_t* ctx,
+                                        int argc,
+                                        const char* argv[]);
+
+static lang_status_t read_code         (frontend_ctx_t* ctx);
+
+static lang_status_t get_file_size     (FILE* file_ptr, size_t* size);
 
 //———————————————————————————————————————————————————————————————————//
 
 int main(int argc, const char* argv[])
 {
-    FILE* input_file  = nullptr;
-    FILE* output_file = nullptr;
-
-    VERIFY(open_files(&input_file,
-                      &output_file,
-                      argc,
-                      argv),
-           return EXIT_FAILURE); //TODO lang_ctx, close files when error
+    frontend_ctx_t ctx = {};
 
     //-------------------------------------------------------------------//
 
-    size_t n_nodes = 0;
-
-    node_t** tokenized_nodes = tokenize(input_file, &n_nodes);
-
-    VERIFY(!tokenized_nodes, return EXIT_FAILURE);
+    node_allocator_t node_allocator = {};
+    ctx.node_allocator = &node_allocator;
 
     //-------------------------------------------------------------------//
 
-    node_t* code_tree = syntax_analyze(tokenized_nodes, n_nodes);
+    VERIFY(frontend_ctx_ctor(&ctx, argc, argv),
+           return EXIT_FAILURE);
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(tokenize(&ctx),
+           return EXIT_FAILURE);
+
+    //-------------------------------------------------------------------//
+
+    node_t* code_tree = syntax_analyze(&ctx);
+
+    //-------------------------------------------------------------------//
+
+    graph_dump(&ctx, TREE);
 
     //-------------------------------------------------------------------//
 
@@ -49,9 +63,29 @@ int main(int argc, const char* argv[])
 
 //===================================================================//
 
-void syntax_error()
+lang_status_t frontend_ctx_ctor(frontend_ctx_t* ctx,
+                                int argc,
+                                const char* argv[])
 {
-    fprintf(stderr, "Syntax Error\n");
+    ASSERT(ctx);
+    ASSERT(argv);
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(open_files(&ctx->input_file,
+                      &ctx->output_file,
+                      argc,
+                      argv),
+           return LANG_OPEN_FILES_ERROR);
+
+    VERIFY(read_code(ctx),
+           return LANG_READ_CODE_ERROR);
+
+    VERIFY(node_allocator_ctor(ctx->node_allocator,
+                               nAllocatedNodes),
+           return LANG_NODE_ALLOCATOR_CTOR_ERROR);
+
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
@@ -125,3 +159,86 @@ lang_status_t parse_argv(const char** input_file_name,
 
     return LANG_SUCCESS;
 }
+
+//===================================================================//
+
+lang_status_t read_code(frontend_ctx_t* ctx)
+{
+    ASSERT(ctx);
+
+    //-------------------------------------------------------------------//
+
+    size_t input_file_size = 0;
+
+    VERIFY(get_file_size(ctx->input_file, &input_file_size),
+           fclose(ctx->input_file);
+           return LANG_GET_FILE_SIZE_ERROR);
+
+    //-------------------------------------------------------------------//
+
+    ctx->code = (char*) calloc(input_file_size + 1, sizeof(char));
+
+    VERIFY(!ctx->code,
+           fclose(ctx->input_file);
+           return LANG_STD_ALLOCATE_ERROR);
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(fread(ctx->code,
+                 sizeof(char),
+                 input_file_size,
+                 ctx->input_file) != input_file_size,
+           fclose(ctx->input_file);
+           return LANG_FREAD_ERROR);
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(fclose(ctx->input_file),
+           return LANG_FCLOSE_ERROR);
+
+    //-------------------------------------------------------------------//
+
+    ctx->nodes = (node_t**) calloc(input_file_size, sizeof(node_t*));
+
+    VERIFY(!ctx->nodes,
+           return LANG_STD_ALLOCATE_ERROR);
+
+    ctx->n_nodes = 0;
+
+    //-------------------------------------------------------------------//
+
+    ctx->name_table.table = (identifier_t*) calloc(input_file_size,
+                                                   sizeof(identifier_t));
+
+    VERIFY(!ctx->name_table.table,
+           return LANG_STD_ALLOCATE_ERROR);
+
+    ctx->name_table.n_names = 0;
+
+    //-------------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t get_file_size(FILE* file_ptr, size_t* size)
+{
+    ASSERT(file_ptr);
+    ASSERT(size);
+
+    //-------------------------------------------------------------------//
+
+    struct stat file_status = {};
+
+    VERIFY((fstat(fileno(file_ptr), &file_status) < 0),
+                        return LANG_GET_FILE_SIZE_ERROR);
+
+    *size = file_status.st_size;
+
+    //-------------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//———————————————————————————————————————————————————————————————————//

@@ -51,6 +51,7 @@ node_allocator_status_t node_allocator_dtor(node_allocator_t* allocator);
 node_t* node_ctor (node_allocator_t* node_allocator,
                    value_type_t      value_type,
                    value_t           value,
+                   size_t            line_number,
                    node_t*           left,
                    node_t*           right);
 

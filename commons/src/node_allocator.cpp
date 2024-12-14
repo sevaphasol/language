@@ -75,6 +75,7 @@ node_allocator_status_t node_allocator_dtor(node_allocator_t* allocator)
 node_t* node_ctor(node_allocator_t* allocator,
                   value_type_t      value_type,
                   value_t           value,
+                  size_t            line_number,
                   node_t*           left,
                   node_t*           right)
 {
@@ -99,10 +100,11 @@ node_t* node_ctor(node_allocator_t* allocator,
 
     //-------------------------------------------------------------------//
 
-    new_node->value_type = value_type;
-    new_node->value      = value;
-    new_node->left       = left;
-    new_node->right      = right;
+    new_node->value_type  = value_type;
+    new_node->value       = value;
+    new_node->left        = left;
+    new_node->right       = right;
+    new_node->line_number = line_number;
 
     //-------------------------------------------------------------------//
 

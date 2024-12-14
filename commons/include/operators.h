@@ -3,7 +3,7 @@
 
 //———————————————————————————————————————————————————————————————————//
 
-#include "stdlib.h"
+#include <stdlib.h>
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -67,8 +67,8 @@ const operator_t OperatorsTable[] =
     {IF           , STR_AND_LEN("if")        },
     {WHILE        , STR_AND_LEN("while")     },
     {RETURN       , STR_AND_LEN("return")    },
-    {PARAM_LINKER , STR_AND_LEN("huy")       },
-    {NEW_VAR      , STR_AND_LEN("int")       },
+    {PARAM_LINKER , STR_AND_LEN(",")         },
+    {NEW_VAR      , STR_AND_LEN("var")       },
     {NEW_FUNC     , STR_AND_LEN("func")      },
     {PROGRAMM_END , STR_AND_LEN("pizdec")    }
 };

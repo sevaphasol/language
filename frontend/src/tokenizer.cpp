@@ -11,83 +11,50 @@
 //———————————————————————————————————————————————————————————————————//
 
 
-static lang_status_t tokenizer_ctx_ctor (tokenizer_ctx_t* ctx);
-static lang_status_t read_code          (tokenizer_ctx_t* ctx);
-static lang_status_t get_file_size      (FILE* file_ptr, size_t* size);
-static node_t*       get_token          (tokenizer_ctx_t* ctx);
-static node_t*       get_str_node       (tokenizer_ctx_t* ctx, const char* str);
-static int           get_num            (char** str);
-
+static node_t* get_token    (frontend_ctx_t* ctx);
+static node_t* get_str_node (frontend_ctx_t* ctx, const char* str);
 
 //———————————————————————————————————————————————————————————————————//
 
-node_t** tokenize(FILE* input_file, size_t* n_nodes)
+lang_status_t tokenize(frontend_ctx_t* ctx)
 {
-    ASSERT(input_file);
+    ASSERT(ctx);
 
     //-------------------------------------------------------------------//
 
-    tokenizer_ctx_t  ctx = {};
+    ctx->nodes[ctx->n_nodes++] = _OPERATOR(STATEMENT);
 
     //-------------------------------------------------------------------//
 
-    node_allocator_t node_allocator = {};
-    ctx.node_allocator = &node_allocator;
+    ctx->cur_line = 1;
 
-    ctx.input_file = input_file;
-
-    VERIFY(tokenizer_ctx_ctor(&ctx),
-           return nullptr);
-
-    //-------------------------------------------------------------------//
-
-    while (*ctx.code != '\0')
+    while (*ctx->code != '\0')
     {
-        node_t* cur_token_node = get_token(&ctx);
+        node_t* cur_token_node = get_token(ctx);
 
         if (cur_token_node)
         {
-            ctx.nodes[ctx.n_nodes++] = cur_token_node;
+            ctx->nodes[ctx->n_nodes++] = cur_token_node;
         }
 
         else
         {
-            fprintf(stderr, "Syntax Error\n");
+            fprintf(stderr, "PIZDEC\n");
 
-            return nullptr;
+            return LANG_GET_TOKEN_ERROR;
         }
 
-        while (isspace(*ctx.code)) {ctx.code++;}
+        while (isspace(*ctx->code))
+        {
+            if (*ctx->code == '\n') {ctx->cur_line++;}
+
+            ctx->code++;
+        }
     }
 
     //-------------------------------------------------------------------//
 
-    for (int i = 0; i < ctx.n_nodes; i++)
-    {
-        graph_dump(&ctx.n_dumps, ctx.nodes[i]);
-    }
-
-    //-------------------------------------------------------------------//
-
-    *n_nodes = ctx.n_nodes;
-
-    return ctx.nodes;
-}
-
-//===================================================================//
-
-lang_status_t tokenizer_ctx_ctor(tokenizer_ctx_t* ctx)
-{
-    ASSERT(ctx);
-
-    //-------------------------------------------------------------------//
-
-    VERIFY(read_code(ctx),
-           return LANG_READ_CODE_ERROR);
-
-    VERIFY(node_allocator_ctor(ctx->node_allocator,
-                               nAllocatedNodes),
-           return LANG_NODE_ALLOCATOR_CTOR_ERROR);
+    graph_dump(ctx, ARR);
 
     //-------------------------------------------------------------------//
 
@@ -96,87 +63,7 @@ lang_status_t tokenizer_ctx_ctor(tokenizer_ctx_t* ctx)
 
 //===================================================================//
 
-lang_status_t read_code(tokenizer_ctx_t* ctx)
-{
-    ASSERT(ctx);
-
-    //-------------------------------------------------------------------//
-
-    size_t input_file_size = 0;
-
-    VERIFY(get_file_size(ctx->input_file, &input_file_size),
-           fclose(ctx->input_file);
-           return LANG_GET_FILE_SIZE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    ctx->code = (char*) calloc(input_file_size + 1, sizeof(char));
-
-    VERIFY(!ctx->code,
-           fclose(ctx->input_file);
-           return LANG_STD_ALLOCATE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    VERIFY(fread(ctx->code,
-                 sizeof(char),
-                 input_file_size,
-                 ctx->input_file) != input_file_size,
-           fclose(ctx->input_file);
-           return LANG_FREAD_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    VERIFY(fclose(ctx->input_file),
-           return LANG_FCLOSE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    ctx->nodes = (node_t**) calloc(input_file_size, sizeof(node_t*));
-
-    VERIFY(!ctx->nodes,
-           return LANG_STD_ALLOCATE_ERROR);
-
-    ctx->n_nodes = 0;
-
-    //-------------------------------------------------------------------//
-
-    ctx->identifiers_table = (identifier_t*) calloc(input_file_size, sizeof(identifier_t));
-
-    VERIFY(!ctx->identifiers_table,
-           return LANG_STD_ALLOCATE_ERROR);
-
-    ctx->n_identifiers = 0;
-
-    //-------------------------------------------------------------------//
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-lang_status_t get_file_size(FILE* file_ptr, size_t* size)
-{
-    ASSERT(file_ptr);
-    ASSERT(size);
-
-    //-------------------------------------------------------------------//
-
-    struct stat file_status = {};
-
-    VERIFY((fstat(fileno(file_ptr), &file_status) < 0),
-                        return LANG_GET_FILE_SIZE_ERROR);
-
-    *size = file_status.st_size;
-
-    //-------------------------------------------------------------------//
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-node_t* get_token(tokenizer_ctx_t* ctx)
+node_t* get_token(frontend_ctx_t* ctx)
 {
     ASSERT(ctx);
 
@@ -184,7 +71,7 @@ node_t* get_token(tokenizer_ctx_t* ctx)
 
     if (isdigit(*ctx->code))
     {
-        return _NUMBER(get_num(&ctx->code));
+        return _NUMBER((int) strtod(ctx->code, &ctx->code));
     }
 
     //-------------------------------------------------------------------//
@@ -193,10 +80,12 @@ node_t* get_token(tokenizer_ctx_t* ctx)
     {
         char str[MaxStrLength] = {};
 
-        for (int i = 0; !isspace(*ctx->code); i++)
+        for (int i = 0; !isspace(*ctx->code) && isalpha(*ctx->code); i++)
         {
             str[i] = *(ctx->code++);
         }
+
+        // printf("%ld\n", strlen(str));
 
         return get_str_node(ctx, str);
     }
@@ -220,31 +109,13 @@ node_t* get_token(tokenizer_ctx_t* ctx)
 
 //===================================================================//
 
-int get_num(char** str)
-{
-    ASSERT(str);
-    ASSERT(*str);
-
-    int res = 0;
-
-    while (isdigit(**str))
-    {
-        res = res * 10 + (**str - '0');
-
-        (*str)++;
-    }
-
-    return res;
-}
-
-//===================================================================//
-
-node_t* get_str_node(tokenizer_ctx_t* ctx, const char* str)
+node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
 {
     ASSERT(ctx);
     ASSERT(str);
 
     //-------------------------------------------------------------------//
+
 
     for (int i = 1; i < nOperators; i++)
     {
@@ -254,21 +125,31 @@ node_t* get_str_node(tokenizer_ctx_t* ctx, const char* str)
         }
     }
 
-    for (size_t id_index = 0; id_index < ctx->n_identifiers; id_index++)
+
+    for (size_t id_index = 0; id_index < ctx->name_table.n_names; id_index++)
     {
-        if (strncmp(ctx->identifiers_table[id_index].name, str,
-            ctx->identifiers_table[id_index].len) == 0)
+    // printf("%s\n", ctx->name_table.table[0].name);
+    // printf("%ld\n", ctx->name_table.n_names);
+
+        // printf("%ld, %ld\n", id_index, ctx->name_table.n_names);
+        // printf("%s - %s\n", str, ctx->name_table.table[id_index].name);
+
+        if (strncmp(ctx->name_table.table[id_index].name, str,
+            ctx->name_table.table[id_index].len) == 0)
         {
             return _IDENTIFIER(id_index);
         }
     }
 
-    ctx->identifiers_table[ctx->n_identifiers++] = {.type = UNKNOWN,
-                                                    .name = str,
-                                                    .len = sizeof(str) / sizeof(char),
-                                                    .is_inited = false};
+    ctx->name_table.table[ctx->name_table.n_names++] =
+                                    {.type = UNKNOWN,
+                                     .name = strdup(str),
+                                     .len = strlen(str),
+                                     .is_inited = false};
+    // printf("%s\n", ctx->name_table.table[0].name);
+    // printf("%ld\n", ctx->name_table.n_names);
 
-    return _IDENTIFIER(ctx->n_identifiers - 1);
+    return _IDENTIFIER(ctx->name_table.n_names - 1);
 }
 
 //———————————————————————————————————————————————————————————————————//

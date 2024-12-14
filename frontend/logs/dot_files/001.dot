@@ -1,7 +1,31 @@
 digraph G{
+nodesep=1;
+ranksep=0.5;
 rankdir=HR;
 node[style=filled, color="#756bb1", fillcolor="#a1d99b",fontcolor="#ba3d3d", fontsize=14];
 edge[color="#006d2c", fontsize=12, penwidth=1, fontcolor = "#49006a"];
 bgcolor="#bcbddc";
-elem0x7ecd36200030[shape="Mrecord", label= "{OPERATOR | val = 8}"];
+elem0x7b473ec00010[shape="Mrecord", label= "{OPERATOR | name = ; | operator_code = 12}"];
+elem0x7b473ec00010->elem0x7b473ec00038;elem0x7b473ec00038[shape="Mrecord", label= "{OPERATOR | name = func | operator_code = 18}"];
+elem0x7b473ec00038->elem0x7b473ec00060;elem0x7b473ec00060[shape="Mrecord", label= "{IDENTIFIER | type = FUNC | name = main | id_index = 0}"];
+elem0x7b473ec00060->elem0x7b473ec00470;elem0x7b473ec00470[shape="Mrecord", label= "{OPERATOR | name = , | operator_code = 16}"];
+elem0x7b473ec00470->elem0x7b473ec000b0;elem0x7b473ec000b0[shape="Mrecord", label= "{OPERATOR | name = var | operator_code = 17}"];
+elem0x7b473ec000b0->elem0x7b473ec000d8;elem0x7b473ec000d8[shape="Mrecord", label= "{IDENTIFIER | type = VAR | name = huy | id_index = 1}"];
+elem0x7b473ec00470->elem0x7b473ec00100;elem0x7b473ec00100[shape="Mrecord", label= "{OPERATOR | name = , | operator_code = 16}"];
+elem0x7b473ec00100->elem0x7b473ec00128;elem0x7b473ec00128[shape="Mrecord", label= "{OPERATOR | name = var | operator_code = 17}"];
+elem0x7b473ec00128->elem0x7b473ec00150;elem0x7b473ec00150[shape="Mrecord", label= "{IDENTIFIER | type = VAR | name = penisvar | id_index = 2}"];
+elem0x7b473ec00100->elem0x7b473ec00178;elem0x7b473ec00178[shape="Mrecord", label= "{OPERATOR | name = , | operator_code = 16}"];
+elem0x7b473ec00178->elem0x7b473ec001a0;elem0x7b473ec001a0[shape="Mrecord", label= "{OPERATOR | name = var | operator_code = 17}"];
+elem0x7b473ec001a0->elem0x7b473ec001c8;elem0x7b473ec001c8[shape="Mrecord", label= "{IDENTIFIER | type = VAR | name = pisun | id_index = 3}"];
+elem0x7b473ec00178->elem0x7b473ec001f0;elem0x7b473ec001f0[shape="Mrecord", label= "{OPERATOR | name = , | operator_code = 16}"];
+elem0x7b473ec001f0->elem0x7b473ec00218;elem0x7b473ec00218[shape="Mrecord", label= "{OPERATOR | name = var | operator_code = 17}"];
+elem0x7b473ec00218->elem0x7b473ec00240;elem0x7b473ec00240[shape="Mrecord", label= "{IDENTIFIER | type = VAR | name = pizda | id_index = 4}"];
+elem0x7b473ec00060->elem0x7b473ec002b8;elem0x7b473ec002b8[shape="Mrecord", label= "{OPERATOR | name = body start | operator_code = 11}"];
+elem0x7b473ec00010->elem0x7b473ec002e0;elem0x7b473ec002e0[shape="Mrecord", label= "{OPERATOR | name = ; | operator_code = 12}"];
+elem0x7b473ec002e0->elem0x7b473ec00308;elem0x7b473ec00308[shape="Mrecord", label= "{OPERATOR | name = func | operator_code = 18}"];
+elem0x7b473ec00308->elem0x7b473ec00330;elem0x7b473ec00330[shape="Mrecord", label= "{IDENTIFIER | type = FUNC | name = penis | id_index = 5}"];
+elem0x7b473ec00330->elem0x7b473ec00498;elem0x7b473ec00498[shape="Mrecord", label= "{OPERATOR | name = , | operator_code = 16}"];
+elem0x7b473ec00498->elem0x7b473ec00380;elem0x7b473ec00380[shape="Mrecord", label= "{OPERATOR | name = var | operator_code = 17}"];
+elem0x7b473ec00380->elem0x7b473ec003a8;elem0x7b473ec003a8[shape="Mrecord", label= "{IDENTIFIER | type = VAR | name = balls | id_index = 6}"];
+elem0x7b473ec00330->elem0x7b473ec00420;elem0x7b473ec00420[shape="Mrecord", label= "{OPERATOR | name = body start | operator_code = 11}"];
 }

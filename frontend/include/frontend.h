@@ -12,32 +12,36 @@ const char* const DefaultInput  = "exmpl.txt";
 const char* const DefaultOutput = "exmpl.asm";
 
 //-------------------------------------------------------------------//
-
-const int MaxStrLength = 100;
-
 //———————————————————————————————————————————————————————————————————//
 
 struct node_allocator_t;
-struct node_t;
-struct identifier_t;
 
-struct tokenizer_ctx_t
+struct name_table_t
 {
-    node_allocator_t* node_allocator;
+    size_t        n_names;
+    identifier_t* table;
+};
+
+struct frontend_ctx_t
+{
     FILE*             input_file;
-    size_t            n_dumps;
-    char*             code;
+    FILE*             output_file;
+
+    node_allocator_t* node_allocator;
+
     node_t**          nodes;
     size_t            n_nodes;
-    identifier_t*     identifiers_table;
-    size_t            n_identifiers;
+    name_table_t      name_table;
+    size_t            cur_line;
+    char*             code;
+
+    size_t            pos;
 };
 
 //———————————————————————————————————————————————————————————————————//
 
-node_t** tokenize       (FILE*    input_file, size_t* n_nodes);
-node_t*  syntax_analyze (node_t** nodes,      size_t n_nodes);
-void     syntax_error   ();
+lang_status_t tokenize  (frontend_ctx_t* ctx);
+node_t*  syntax_analyze (frontend_ctx_t* ctx);
 
 //———————————————————————————————————————————————————————————————————//
 

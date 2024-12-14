@@ -7,37 +7,44 @@
 
 //-------------------------------------------------------------------//
 
+#include "operators.h"
 #include "graph_dump.h"
 #include "node_allocator.h"
 #include "custom_assert.h"
+#include "../../frontend/include/frontend.h"
 
 //———————————————————————————————————————————————————————————————————//
 
 static tree_dump_status_t dot_file_init  (FILE*       dot_file);
 
-static tree_dump_status_t make_edges     (node_t*     node,
-                                          FILE*       file,
-                                          int*        node_number);
+static tree_dump_status_t make_edges     (frontend_ctx_t* ctx,
+                                          node_t*         node,
+                                          FILE*           file);
 
-static tree_dump_status_t make_elem      (node_t*     node,
-                                          FILE*       file,
-                                          int*        node_number);
+static tree_dump_status_t make_elem      (frontend_ctx_t* ctx,
+                                          node_t*         node,
+                                          FILE*           file);
 
 static tree_dump_status_t create_png     (const char* dot_file_name,
                                           const char* png_file_name);
 
 //———————————————————————————————————————————————————————————————————//
 
-tree_dump_status_t graph_dump(size_t* n_dumps, node_t* root)
+tree_dump_status_t graph_dump(frontend_ctx_t* ctx,
+                              dump_mode_t mode)
 {
-    VERIFY(!root, return TREE_DUMP_STRUCT_NULL_PTR_ERROR);
+    ASSERT(ctx);
+
+    //-------------------------------------------------------------------//
+
+    static size_t n_dumps = 0;
 
     //-------------------------------------------------------------------//
 
     char dot_file_name[FileNameBufSize] = {};
     snprintf(dot_file_name, FileNameBufSize,
              LOGS_DIR "/" DOTS_DIR "/" "%03ld.dot",
-             *n_dumps);
+             n_dumps);
 
     FILE* dot_file = fopen(dot_file_name, "w");
     VERIFY(!dot_file, return TREE_DUMP_FILE_OPEN_ERROR);
@@ -46,8 +53,19 @@ tree_dump_status_t graph_dump(size_t* n_dumps, node_t* root)
 
     //-------------------------------------------------------------------//
 
-    int node_number = 1;
-    make_edges(root, dot_file, &node_number);
+    if (mode == TREE)
+    {
+        make_edges(ctx, ctx->nodes[0], dot_file);
+    }
+    else if (mode == ARR)
+    {
+        for (int node_ind = 0; node_ind < ctx->n_nodes; node_ind++)
+        {
+            make_elem(ctx, ctx->nodes[node_ind], dot_file);
+        }
+    }
+
+    //-------------------------------------------------------------------//
 
     fputs("}\n", dot_file);
     fclose(dot_file);
@@ -57,13 +75,13 @@ tree_dump_status_t graph_dump(size_t* n_dumps, node_t* root)
     char png_file_name[FileNameBufSize] = {};
     snprintf(png_file_name, FileNameBufSize,
              LOGS_DIR "/" IMGS_DIR "/" "%03ld.png",
-             *n_dumps);
+             n_dumps);
 
     create_png(dot_file_name, png_file_name);
 
     //-------------------------------------------------------------------//
 
-    (*n_dumps)++;
+    n_dumps++;
 
     //-------------------------------------------------------------------//
 
@@ -79,6 +97,8 @@ tree_dump_status_t dot_file_init(FILE* dot_file)
     //-------------------------------------------------------------------//
 
     fprintf(dot_file, "digraph G{\n"
+                      "nodesep=1;\n"
+                      "ranksep=0.5;\n"
                       "rankdir=HR;\n"
                       "node[style=filled, color=\"%s\", fillcolor=\"%s\","
                       "fontcolor=\"%s\", fontsize=14];\n"
@@ -96,11 +116,11 @@ tree_dump_status_t dot_file_init(FILE* dot_file)
 
 //===================================================================//
 
-tree_dump_status_t make_elem(node_t* node, FILE* file, int* node_number)
+tree_dump_status_t make_elem(frontend_ctx_t* ctx, node_t* node, FILE* file)
 {
+    ASSERT(ctx);
     ASSERT(node);
     ASSERT(file);
-    ASSERT(node_number);
 
     //-------------------------------------------------------------------//
 
@@ -119,23 +139,44 @@ tree_dump_status_t make_elem(node_t* node, FILE* file, int* node_number)
         }
         case IDENTIFIER:
         {
+            const char* id_type = "UNKNOWN";
+
+            if (ctx->name_table.table[node->value.id_index].type == VAR)
+            {
+                id_type = "VAR";
+            }
+            else if (ctx->name_table.table[node->value.id_index].type == FUNC)
+            {
+                id_type = "FUNC";
+            }
+
             fprintf(file, "elem%p["
                           "shape=\"Mrecord\", "
-                          "label= \"{%s | val = %ld}\""
+                          "label= \"{%s | type = %s | name = %s | id_index = %ld}\""
                           "];\n",
                           node,
                           "IDENTIFIER",
+                          id_type,
+                          ctx->name_table.table[node->value.id_index].name,
                           node->value.id_index);
             break;
         }
         case OPERATOR:
         {
+            const char* name = OperatorsTable[node->value.operator_code].name;
+
+            if (name[0] == '{' || name[0] == '}')
+            {
+                name = "body start";
+            }
+
             fprintf(file, "elem%p["
                           "shape=\"Mrecord\", "
-                          "label= \"{%s | val = %d}\""
+                          "label= \"{%s | name = %s | operator_code = %d}\""
                           "];\n",
                           node,
                           "OPERATOR",
+                          name,
                           node->value.operator_code);
             break;
         }
@@ -152,38 +193,31 @@ tree_dump_status_t make_elem(node_t* node, FILE* file, int* node_number)
 
 //===================================================================//
 
-tree_dump_status_t make_edges(node_t* node, FILE* file, int* node_number)
+tree_dump_status_t make_edges(frontend_ctx_t* ctx, node_t* node, FILE* file)
 {
     ASSERT(node);
     ASSERT(file);
-    ASSERT(node_number);
 
     //-------------------------------------------------------------------//
 
-    make_elem(node, file, node_number);
+    make_elem(ctx, node, file);
 
     //-------------------------------------------------------------------//
-
-    int head_node_number = *node_number;
 
     if (node->left)
     {
-        int left_node_number = ++*node_number;
-
         fprintf(file, "elem%p->elem%p;",
                       node, node->left);
 
-        make_edges(node->left, file, node_number);
+        make_edges(ctx, node->left, file);
     }
 
     if (node->right)
     {
-        int right_node_number = ++*node_number;
-
         fprintf(file, "elem%p->elem%p;",
                        node, node->right);
 
-        make_edges(node->right, file, node_number);
+        make_edges(ctx, node->right, file);
     }
 
     //-------------------------------------------------------------------//

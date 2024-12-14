@@ -7,6 +7,10 @@
 
 //———————————————————————————————————————————————————————————————————//
 
+const int MaxStrLength = 100;
+
+//———————————————————————————————————————————————————————————————————//
+
 enum lang_status_t
 {
     LANG_SUCCESS = 0,
@@ -21,6 +25,8 @@ enum lang_status_t
     LANG_NODE_ALLOCATOR_CTOR_ERROR = 9,
     LANG_TOKENIZER_CTX_CTOR_ERROR = 10,
     LANG_SYNTAX_ERROR = 11,
+    LANG_OPEN_FILES_ERROR = 12,
+    LANG_GET_TOKEN_ERROR = 13,
 };
 
 //———————————————————————————————————————————————————————————————————//
@@ -29,6 +35,7 @@ struct node_t
 {
     value_type_t value_type;
     value_t      value;
+    size_t       line_number;
     node_t*      left;
     node_t*      right;
 };
