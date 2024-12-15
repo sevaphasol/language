@@ -1,0 +1,38 @@
+{type = OPERATOR code = 10
+	{type = OPERATOR code = 14
+		{type = IDENTIFIER code = 0}
+		{type = NUMBER val = 1}
+	}
+	{type = OPERATOR code = 10
+		{type = OPERATOR code = 15
+			{type = IDENTIFIER code = 1
+				{type = OPERATOR code = 11
+					{type = OPERATOR code = 14
+						{type = IDENTIFIER code = 2}
+					}
+					{type = OPERATOR code = 11
+						{type = OPERATOR code = 14
+							{type = IDENTIFIER code = 3}
+						}
+					}
+				}
+				{type = OPERATOR code = 10
+					{type = OPERATOR code = 14
+						{type = IDENTIFIER code = 4}
+						{type = NUMBER val = 1}
+					}
+					{type = OPERATOR code = 10
+						{type = OPERATOR code = 20
+							{type = IDENTIFIER code = 2}
+						}
+						{type = OPERATOR code = 10
+							{type = OPERATOR code = 19
+								{type = IDENTIFIER code = 2}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

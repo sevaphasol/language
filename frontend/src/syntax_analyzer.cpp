@@ -116,22 +116,8 @@ static node_t*     get_single_expression    (frontend_ctx_t* ctx);
 
 static void        connect_nodes            (node_t* parent, node_t* left, node_t* right);
 lang_status_t      syntax_error             (bool condition, const char* str, ...);
-static const char* type_name                (value_type_t type);
 
 //———————————————————————————————————————————————————————————————————//
-
-const char* type_name(value_type_t type)
-{
-    switch (type)
-    {
-        case OPERATOR:   return "OPERATOR";
-        case NUMBER:     return "NUMBER";
-        case IDENTIFIER: return "IDENTIFIER";
-        default:         return "GOUDA";
-    }
-}
-
-//===================================================================//
 
 void connect_nodes (node_t* parent, node_t* left, node_t* right)
 {
@@ -145,13 +131,21 @@ void connect_nodes (node_t* parent, node_t* left, node_t* right)
 
 //===================================================================//
 
-node_t* syntax_analyze(frontend_ctx_t* ctx)
+lang_status_t syntax_analysis(frontend_ctx_t* ctx)
 {
     ASSERT(ctx)
+    ASSERT(ctx->nodes)
 
     //-------------------------------------------------------------------//
 
-    return get_global_statement(ctx);
+    ctx->nodes[0] = get_global_statement(ctx);
+
+    VERIFY(!ctx->nodes[0],
+           return LANG_SYNTAX_ERROR);
+
+    //-------------------------------------------------------------------//
+
+    return LANG_SUCCESS;
 }
 
 //===================================================================//

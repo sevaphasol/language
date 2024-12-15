@@ -50,7 +50,14 @@ int main(int argc, const char* argv[])
 
     //-------------------------------------------------------------------//
 
-    node_t* code_tree = syntax_analyze(&ctx);
+    VERIFY(syntax_analysis(&ctx),
+           return EXIT_FAILURE);
+
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(tree_output(&ctx, ctx.nodes[0], 0),
+           return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
@@ -59,6 +66,19 @@ int main(int argc, const char* argv[])
     //-------------------------------------------------------------------//
 
     return EXIT_SUCCESS;
+}
+
+//===================================================================//
+
+const char* type_name(value_type_t type)
+{
+    switch (type)
+    {
+        case OPERATOR:   return "OPERATOR";
+        case NUMBER:     return "NUMBER";
+        case IDENTIFIER: return "IDENTIFIER";
+        default:         return "GOUDA";
+    }
 }
 
 //===================================================================//

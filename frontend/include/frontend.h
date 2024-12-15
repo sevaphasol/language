@@ -8,8 +8,8 @@
 
 //———————————————————————————————————————————————————————————————————//
 
-const char* const DefaultInput  = "exmpl.txt";
-const char* const DefaultOutput = "exmpl.asm";
+const char* const DefaultInput  = "exmpl_src.txt";
+const char* const DefaultOutput = "exmpl_res.txt";
 
 //-------------------------------------------------------------------//
 //———————————————————————————————————————————————————————————————————//
@@ -40,8 +40,13 @@ struct frontend_ctx_t
 
 //———————————————————————————————————————————————————————————————————//
 
-lang_status_t tokenize  (frontend_ctx_t* ctx);
-node_t*  syntax_analyze (frontend_ctx_t* ctx);
+const char*   type_name       (value_type_t type);
+
+lang_status_t tokenize        (frontend_ctx_t* ctx);
+lang_status_t syntax_analysis (frontend_ctx_t* ctx);
+lang_status_t tree_output     (frontend_ctx_t* ctx,
+                               node_t* node,
+                               size_t level);
 
 //———————————————————————————————————————————————————————————————————//
 
