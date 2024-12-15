@@ -6,32 +6,25 @@
 #include "custom_assert.h"
 #include "graph_dump.h"
 #include "node_allocator.h"
+#include "io_interaction.h"
 
 //———————————————————————————————————————————————————————————————————//
 
-static lang_status_t parse_argv        (const char** input_file_name,
-                                        const char** output_file_name,
-                                        int argc,
-                                        const char* argv[]);
+static lang_status_t frontend_ctx_ctor (lang_ctx_t* ctx,
+                                        int             argc,
+                                        const char*     argv[]);
 
-static lang_status_t open_files        (FILE**      input_file,
-                                        FILE**      output_file,
-                                        int         argc,
-                                        const char* argv[]);
+static lang_status_t tree_output       (lang_ctx_t* ctx,
+                                        node_t*         node,
+                                        size_t          level);
 
-static lang_status_t frontend_ctx_ctor (frontend_ctx_t* ctx,
-                                        int argc,
-                                        const char* argv[]);
-
-static lang_status_t read_code         (frontend_ctx_t* ctx);
-
-static lang_status_t get_file_size     (FILE* file_ptr, size_t* size);
+static lang_status_t name_table_output (lang_ctx_t* ctx);
 
 //———————————————————————————————————————————————————————————————————//
 
 int main(int argc, const char* argv[])
 {
-    frontend_ctx_t ctx = {};
+    lang_ctx_t ctx = {};
 
     //-------------------------------------------------------------------//
 
@@ -40,28 +33,48 @@ int main(int argc, const char* argv[])
 
     //-------------------------------------------------------------------//
 
-    VERIFY(frontend_ctx_ctor(&ctx, argc, argv),
+    VERIFY(lang_ctx_ctor(&ctx,
+                         argc,
+                         argv,
+                         DefaultInput,
+                         DefaultOutput),
+           lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
     VERIFY(tokenize(&ctx),
+           lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
     VERIFY(syntax_analysis(&ctx),
+           lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
+    //-------------------------------------------------------------------//
+
+    VERIFY(name_table_output(&ctx),
+           lang_ctx_dtor(&ctx);
+           return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
     VERIFY(tree_output(&ctx, ctx.nodes[0], 0),
+           lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
-    graph_dump(&ctx, TREE);
+    VERIFY(graph_dump(&ctx, TREE),
+           lang_ctx_dtor(&ctx);
+           return EXIT_FAILURE);
+
+    //-------------------------------------------------------------------//
+
+    VERIFY(lang_ctx_dtor(&ctx),
+           return EXIT_FAILURE);
 
     //-------------------------------------------------------------------//
 
@@ -70,191 +83,99 @@ int main(int argc, const char* argv[])
 
 //===================================================================//
 
-const char* type_name(value_type_t type)
-{
-    switch (type)
-    {
-        case OPERATOR:   return "OPERATOR";
-        case NUMBER:     return "NUMBER";
-        case IDENTIFIER: return "IDENTIFIER";
-        default:         return "GOUDA";
-    }
-}
-
-//===================================================================//
-
-lang_status_t frontend_ctx_ctor(frontend_ctx_t* ctx,
-                                int argc,
-                                const char* argv[])
+lang_status_t name_table_output (lang_ctx_t* ctx)
 {
     ASSERT(ctx);
-    ASSERT(argv);
 
     //-------------------------------------------------------------------//
 
-    VERIFY(open_files(&ctx->input_file,
-                      &ctx->output_file,
-                      argc,
-                      argv),
-           return LANG_OPEN_FILES_ERROR);
+    fprintf(ctx->output_file,
+            "Number of tables = %d\n\n", 1);
 
-    VERIFY(read_code(ctx),
-           return LANG_READ_CODE_ERROR);
+    fprintf(ctx->output_file,
+            "Number of indexes = %ld\n"
+            "%-10s %-10s %-10s %-10s\n",
+            ctx->name_table.n_names,
+            "index", "name", "type", "n params");
 
-    VERIFY(node_allocator_ctor(ctx->node_allocator,
-                               nAllocatedNodes),
-           return LANG_NODE_ALLOCATOR_CTOR_ERROR);
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-lang_status_t open_files(FILE**      input_file,
-                         FILE**      output_file,
-                         int         argc,
-                         const char* argv[])
-{
-    ASSERT(input_file);
-    ASSERT(output_file);
-    ASSERT(argv);
-
-    //-------------------------------------------------------------------//
-
-    const char* input_file_name  = nullptr;
-    const char* output_file_name = nullptr;
-
-    VERIFY(parse_argv(&input_file_name,
-                      &output_file_name,
-                      argc,
-                      argv),
-           return LANG_PARSE_ARGV_ERROR);
-
-    VERIFY(!input_file_name || !output_file_name,
-           return LANG_PARSE_ARGV_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    *input_file  = fopen(input_file_name,  "rb");
-    *output_file = fopen(output_file_name, "wb");
-
-    VERIFY(!input_file || !output_file,
-           return LANG_FILE_OPEN_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-lang_status_t parse_argv(const char** input_file_name,
-                         const char** output_file_name,
-                         int argc,
-                         const char* argv[])
-{
-    ASSERT(input_file_name);
-    ASSERT(output_file_name);
-    ASSERT(argv);
-
-    //-------------------------------------------------------------------//
-
-    switch (argc)
+    for (int i = 0; i < ctx->name_table.n_names; i++)
     {
-        case 1:
-            *input_file_name  = DefaultInput;
-            *output_file_name = DefaultOutput;
-        case 2:
-            *input_file_name  = argv[1];
-            *output_file_name = DefaultOutput;
-        case 3:
-            *input_file_name  = argv[1];
-            *output_file_name = argv[2];
+        fprintf(ctx->output_file,
+               "%-10d %-10s %-10d %-10d\n",
+               i,
+               ctx->name_table.table[i].name,
+               ctx->name_table.table[i].type,
+               ctx->name_table.table[i].n_params);
+    }
+
+    fputc('\n', ctx->output_file);
+
+    //-------------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t tree_output(lang_ctx_t* ctx, node_t* node, size_t level)
+{
+    ASSERT(ctx);
+    ASSERT(node);
+
+    //-------------------------------------------------------------------//
+
+    for (int i = 0; i < level; i++)
+    {
+        fputc('\t', ctx->output_file);
+    }
+
+    fprintf(ctx->output_file, "{%d ", node->value_type);
+
+    switch (node->value_type)
+    {
+        case OPERATOR:
+        {
+            fprintf(ctx->output_file, "%d", node->value.operator_code);
+
+            break;
+        }
+        case IDENTIFIER:
+        {
+            fprintf(ctx->output_file, "%ld", node->value.id_index);
+
+            break;
+        }
+        case NUMBER:
+        {
+            fprintf(ctx->output_file, "%d", node->value.number);
+            break;
+        }
         default:
-            *input_file_name  = DefaultInput;
-            *output_file_name = DefaultOutput;
+        {
+            ASSERT(true);
+            break;
+        }
     }
 
-    //-------------------------------------------------------------------//
+    if (node->left)
+    {
+        fputc('\n', ctx->output_file);
+        tree_output(ctx, node->left,  level + 1);
+    }
+    if (node->right)
+    {
+        tree_output(ctx, node->right, level + 1);
+    }
 
-    return LANG_SUCCESS;
-}
+    if (node->left || node->right)
+    {
+        for (int i = 0; i < level; i++)
+        {
+            fputc('\t', ctx->output_file);
+        }
+    }
 
-//===================================================================//
-
-lang_status_t read_code(frontend_ctx_t* ctx)
-{
-    ASSERT(ctx);
-
-    //-------------------------------------------------------------------//
-
-    size_t input_file_size = 0;
-
-    VERIFY(get_file_size(ctx->input_file, &input_file_size),
-           fclose(ctx->input_file);
-           return LANG_GET_FILE_SIZE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    ctx->code = (char*) calloc(input_file_size + 1, sizeof(char));
-
-    VERIFY(!ctx->code,
-           fclose(ctx->input_file);
-           return LANG_STD_ALLOCATE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    VERIFY(fread(ctx->code,
-                 sizeof(char),
-                 input_file_size,
-                 ctx->input_file) != input_file_size,
-           fclose(ctx->input_file);
-           return LANG_FREAD_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    VERIFY(fclose(ctx->input_file),
-           return LANG_FCLOSE_ERROR);
-
-    //-------------------------------------------------------------------//
-
-    ctx->nodes = (node_t**) calloc(input_file_size, sizeof(node_t*));
-
-    VERIFY(!ctx->nodes,
-           return LANG_STD_ALLOCATE_ERROR);
-
-    ctx->n_nodes = 0;
-
-    //-------------------------------------------------------------------//
-
-    ctx->name_table.table = (identifier_t*) calloc(input_file_size,
-                                                   sizeof(identifier_t));
-
-    VERIFY(!ctx->name_table.table,
-           return LANG_STD_ALLOCATE_ERROR);
-
-    ctx->name_table.n_names = 0;
-
-    //-------------------------------------------------------------------//
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-lang_status_t get_file_size(FILE* file_ptr, size_t* size)
-{
-    ASSERT(file_ptr);
-    ASSERT(size);
-
-    //-------------------------------------------------------------------//
-
-    struct stat file_status = {};
-
-    VERIFY((fstat(fileno(file_ptr), &file_status) < 0),
-                        return LANG_GET_FILE_SIZE_ERROR);
-
-    *size = file_status.st_size;
+    fputs("}\n",  ctx->output_file);
 
     //-------------------------------------------------------------------//
 

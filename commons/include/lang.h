@@ -3,6 +3,10 @@
 
 //———————————————————————————————————————————————————————————————————//
 
+#include <stdio.h>
+
+//———————————————————————————————————————————————————————————————————//
+
 #include "operators.h"
 
 //———————————————————————————————————————————————————————————————————//
@@ -27,6 +31,7 @@ enum lang_status_t
     LANG_SYNTAX_ERROR = 11,
     LANG_OPEN_FILES_ERROR = 12,
     LANG_GET_TOKEN_ERROR = 13,
+    LANG_NODE_ALLOCATOR_DTOR_ERROR = 14,
 };
 
 //———————————————————————————————————————————————————————————————————//
@@ -39,6 +44,47 @@ struct node_t
     node_t*      left;
     node_t*      right;
 };
+
+//———————————————————————————————————————————————————————————————————//
+
+struct name_table_t
+{
+    size_t        n_names;
+    identifier_t* table;
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+struct node_allocator_t;
+
+//———————————————————————————————————————————————————————————————————//
+
+struct lang_ctx_t
+{
+    FILE*             input_file;
+    FILE*             output_file;
+    size_t            input_size;
+
+    node_allocator_t* node_allocator;
+
+    node_t**          nodes;
+    size_t            n_nodes;
+    name_table_t      name_table;
+    size_t            cur_line;
+    char*             code;
+
+    size_t            pos;
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+lang_status_t lang_ctx_ctor (lang_ctx_t* ctx,
+                             int argc,
+                             const char* argv[],
+                             const char* default_input,
+                             const char* default_output);
+
+lang_status_t lang_ctx_dtor (lang_ctx_t* ctx);
 
 //———————————————————————————————————————————————————————————————————//
 

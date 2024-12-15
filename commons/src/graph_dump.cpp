@@ -17,11 +17,11 @@
 
 static tree_dump_status_t dot_file_init  (FILE*       dot_file);
 
-static tree_dump_status_t make_edges     (frontend_ctx_t* ctx,
+static tree_dump_status_t make_edges     (lang_ctx_t*     ctx,
                                           node_t*         node,
                                           FILE*           file);
 
-static tree_dump_status_t make_elem      (frontend_ctx_t* ctx,
+static tree_dump_status_t make_elem      (lang_ctx_t*     ctx,
                                           node_t*         node,
                                           FILE*           file);
 
@@ -30,7 +30,7 @@ static tree_dump_status_t create_png     (const char* dot_file_name,
 
 //———————————————————————————————————————————————————————————————————//
 
-tree_dump_status_t graph_dump(frontend_ctx_t* ctx,
+tree_dump_status_t graph_dump(lang_ctx_t* ctx,
                               dump_mode_t mode)
 {
     ASSERT(ctx);
@@ -116,7 +116,7 @@ tree_dump_status_t dot_file_init(FILE* dot_file)
 
 //===================================================================//
 
-tree_dump_status_t make_elem(frontend_ctx_t* ctx, node_t* node, FILE* file)
+tree_dump_status_t make_elem(lang_ctx_t* ctx, node_t* node, FILE* file)
 {
     ASSERT(ctx);
     ASSERT(node);
@@ -165,9 +165,14 @@ tree_dump_status_t make_elem(frontend_ctx_t* ctx, node_t* node, FILE* file)
         {
             const char* name = OperatorsTable[node->value.operator_code].name;
 
-            if (name[0] == '{' || name[0] == '}')
+            if (name[0] == '{')
             {
                 name = "body start";
+            }
+
+            if (name[0] == '}')
+            {
+                name = "body end";
             }
 
             fprintf(file, "elem%p["
@@ -193,7 +198,7 @@ tree_dump_status_t make_elem(frontend_ctx_t* ctx, node_t* node, FILE* file)
 
 //===================================================================//
 
-tree_dump_status_t make_edges(frontend_ctx_t* ctx, node_t* node, FILE* file)
+tree_dump_status_t make_edges(lang_ctx_t* ctx, node_t* node, FILE* file)
 {
     ASSERT(node);
     ASSERT(file);

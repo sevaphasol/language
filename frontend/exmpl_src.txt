@@ -1,10 +1,17 @@
 sosal? krosovka b = 1
 
+sosal? korobka huy(krasivaya krosovka v)
+{
+    sosal? print(krasivaya v + 1)
+}
+
 sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)
 {
     sosal? krosovka d = 1
 
-    sosal? scan(a)
-    sosal? print(a)
-}
+    sosal? scan(krasivaya a)
 
+    sosal? please huy(krasivaya a)
+
+    sosal? print(krasivaya a)
+}

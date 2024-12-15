@@ -39,16 +39,16 @@ const size_t SysCommandBufSize = 278;
 
 //———————————————————————————————————————————————————————————————————//
 
-const char* const BackGroundColor     = "#bcbddc";
-const char* const NodeBackGroundColor = "#a1d99b";
-const char* const NodeBorderColor     = "#756bb1";
-const char* const EdgeColor           = "#006d2c";
-const char* const NodeFontColor       = "#ba3d3d";
+const char* const BackGroundColor     = "#9c9c9c";
+const char* const NodeBackGroundColor = "#494a4a";
+const char* const NodeBorderColor     = "#0a0a0a";
+const char* const EdgeColor           = "#000000";
+const char* const NodeFontColor       = "#e6e6e6";
 const char* const EdgeFontColor       = "#49006a";
 
 //———————————————————————————————————————————————————————————————————//
 
-tree_dump_status_t graph_dump (frontend_ctx_t* ctx,
+tree_dump_status_t graph_dump (lang_ctx_t* ctx,
                                dump_mode_t mode);
 
 //———————————————————————————————————————————————————————————————————//

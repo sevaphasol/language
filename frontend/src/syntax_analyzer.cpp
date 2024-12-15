@@ -54,10 +54,17 @@
                                                                       \
     if (_CURRENT_NODE->value_type != __type__)                        \
     {                                                                 \
+        if (_CURRENT_NODE->value_type == IDENTIFIER)                  \
+        {                                                             \
+            fprintf(stderr, _RED("unexpected ")                       \
+                            _PURPLE("%s") ".\n",                      \
+                            _CURRENT_ID.name);                        \
+        }                                                             \
         _SYNTAX_ERROR("Expected type " _PURPLE("%s") ". "             \
                       "Got type " _PURPLE("%s") " instead.",          \
                       type_name(__type__),                            \
                       type_name(_CURRENT_NODE->value_type));          \
+                                                                      \
     }                                                                 \
 
 //===================================================================//
@@ -91,47 +98,33 @@
                       _ID(node).name)                                 \
     }                                                                 \
 
-//===================================================================//
+//———————————————————————————————————————————————————————————————————//
+
+static node_t*       get_global_statement     (lang_ctx_t* ctx);
+static node_t*       get_declaration          (lang_ctx_t* ctx);
+static node_t*       get_func_declaration     (lang_ctx_t* ctx);
+static node_t*       get_func_params          (lang_ctx_t* ctx, int* n_params);
+static node_t*       get_body                 (lang_ctx_t* ctx);
+static node_t*       get_var_declaration      (lang_ctx_t* ctx);
+static node_t*       get_statement            (lang_ctx_t* ctx);
+static node_t*       get_standart_func        (lang_ctx_t* ctx);
+static node_t*       get_if                   (lang_ctx_t* ctx);
+static node_t*       get_return               (lang_ctx_t* ctx);
+static node_t*       get_func                 (lang_ctx_t* ctx);
+static node_t*       get_call                 (lang_ctx_t* ctx);
+static node_t*       get_scan                 (lang_ctx_t* ctx);
+static node_t*       get_assignment           (lang_ctx_t* ctx);
+static node_t*       get_expression           (lang_ctx_t* ctx);
+static node_t*       get_mul_div_expression   (lang_ctx_t* ctx);
+static node_t*       get_in_parent_expression (lang_ctx_t* ctx);
+static node_t*       get_single_expression    (lang_ctx_t* ctx);
+
+static void          connect_nodes            (node_t* parent, node_t* left, node_t* right);
+static const char*   type_name                (value_type_t    type);
 
 //———————————————————————————————————————————————————————————————————//
 
-static node_t*     get_global_statement     (frontend_ctx_t* ctx);
-static node_t*     get_declaration          (frontend_ctx_t* ctx);
-static node_t*     get_func_declaration     (frontend_ctx_t* ctx);
-static node_t*     get_func_params          (frontend_ctx_t* ctx);
-static node_t*     get_body                 (frontend_ctx_t* ctx);
-static node_t*     get_var_declaration      (frontend_ctx_t* ctx);
-static node_t*     get_statement            (frontend_ctx_t* ctx);
-static node_t*     get_standart_func        (frontend_ctx_t* ctx);
-static node_t*     get_if                   (frontend_ctx_t* ctx);
-static node_t*     get_return               (frontend_ctx_t* ctx);
-static node_t*     get_func                 (frontend_ctx_t* ctx);
-static node_t*     get_call                 (frontend_ctx_t* ctx);
-static node_t*     get_scan                 (frontend_ctx_t* ctx);
-static node_t*     get_assignment           (frontend_ctx_t* ctx);
-static node_t*     get_expression           (frontend_ctx_t* ctx);
-static node_t*     get_mul_div_expression   (frontend_ctx_t* ctx);
-static node_t*     get_in_parent_expression (frontend_ctx_t* ctx);
-static node_t*     get_single_expression    (frontend_ctx_t* ctx);
-
-static void        connect_nodes            (node_t* parent, node_t* left, node_t* right);
-lang_status_t      syntax_error             (bool condition, const char* str, ...);
-
-//———————————————————————————————————————————————————————————————————//
-
-void connect_nodes (node_t* parent, node_t* left, node_t* right)
-{
-    ASSERT(parent);
-
-    //-------------------------------------------------------------------//
-
-    if (left)  parent->left  = left;
-    if (right) parent->right = right;
-}
-
-//===================================================================//
-
-lang_status_t syntax_analysis(frontend_ctx_t* ctx)
+lang_status_t syntax_analysis(lang_ctx_t* ctx)
 {
     ASSERT(ctx)
     ASSERT(ctx->nodes)
@@ -150,7 +143,7 @@ lang_status_t syntax_analysis(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_global_statement(frontend_ctx_t* ctx)
+node_t* get_global_statement(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -186,7 +179,7 @@ node_t* get_global_statement(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_declaration(frontend_ctx_t* ctx)
+node_t* get_declaration(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -217,7 +210,7 @@ node_t* get_declaration(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_func_declaration(frontend_ctx_t* ctx)
+node_t* get_func_declaration(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -248,7 +241,9 @@ node_t* get_func_declaration(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
-    node_t* func_params = get_func_params(ctx);
+    int n_params = 0;
+
+    node_t* func_params = get_func_params(ctx, &n_params);
 
     //-------------------------------------------------------------------//
 
@@ -272,8 +267,9 @@ node_t* get_func_declaration(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
-    _ID(func_name).is_inited = true;
-    _ID(func_name).type      = FUNC;
+    _ID(func_name).is_inited  = true;
+    _ID(func_name).type       = FUNC;
+    _ID(func_name).n_params = n_params;
 
     //-------------------------------------------------------------------//
 
@@ -282,7 +278,7 @@ node_t* get_func_declaration(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_func_params(frontend_ctx_t* ctx)
+node_t* get_func_params(lang_ctx_t* ctx, int* n_params)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -293,6 +289,8 @@ node_t* get_func_params(frontend_ctx_t* ctx)
     {
         return nullptr;
     }
+
+    (*n_params)++;
 
     //-------------------------------------------------------------------//
 
@@ -324,7 +322,7 @@ node_t* get_func_params(frontend_ctx_t* ctx)
 
     connect_nodes(var_declaration, var_name, nullptr);
 
-    node_t* next_param = get_func_params(ctx);
+    node_t* next_param = get_func_params(ctx, n_params);
 
     connect_nodes(param, var_declaration, next_param);
 
@@ -335,7 +333,7 @@ node_t* get_func_params(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_var_declaration(frontend_ctx_t* ctx)
+node_t* get_var_declaration(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -384,7 +382,7 @@ node_t* get_var_declaration(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_body(frontend_ctx_t* ctx)
+node_t* get_body(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -441,7 +439,7 @@ node_t* get_body(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_statement(frontend_ctx_t* ctx)
+node_t* get_statement(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -456,24 +454,13 @@ node_t* get_statement(frontend_ctx_t* ctx)
         }
         case IDENTIFIER:
         {
-            switch (_ID(_CURRENT_NODE).type)
+            if(_ID(_CURRENT_NODE).type == VAR)
             {
-                case VAR:
-                {
-                    return get_assignment(ctx);
-                }
-
-                case FUNC:
-                {
-                    return get_call(ctx);
-                }
-
-                default:
-                {
-                    _NOT_INIT_ERROR;
-
-                    break;
-                }
+                return get_assignment(ctx);
+            }
+            else
+            {
+                _NOT_INIT_ERROR;
             }
 
             break;
@@ -494,7 +481,7 @@ node_t* get_statement(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_standart_func(frontend_ctx_t* ctx)
+node_t* get_standart_func(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -513,6 +500,7 @@ node_t* get_standart_func(frontend_ctx_t* ctx)
         case PRINT:   return get_func(ctx);
         case SCAN:    return get_scan(ctx);
         case NEW_VAR: return get_var_declaration(ctx);
+        case CALL:    return get_call(ctx);
         default:
         {
             _SYNTAX_ERROR("Expected standart func. Got "
@@ -527,7 +515,7 @@ node_t* get_standart_func(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_if(frontend_ctx_t* ctx)
+node_t* get_if(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -568,7 +556,7 @@ node_t* get_if(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_return(frontend_ctx_t* ctx)
+node_t* get_return(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -596,9 +584,9 @@ node_t* get_return(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_func(frontend_ctx_t* ctx)
+node_t* get_func(lang_ctx_t* ctx)
 {
-    ASSERT(ctx);
+   ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
 
     //-------------------------------------------------------------------//
@@ -610,6 +598,12 @@ node_t* get_func(frontend_ctx_t* ctx)
     //-------------------------------------------------------------------//
 
     _CHECK_OPERATOR(OPEN_BRACKET);
+
+    ctx->pos++;
+
+    _CHECK_OPERATOR(PARAM_LINKER);
+
+    node_t* param_linker = _CURRENT_NODE;
 
     ctx->pos++;
 
@@ -626,7 +620,8 @@ node_t* get_func(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
-    connect_nodes(node_func, func_param, nullptr);
+    connect_nodes(node_func, param_linker, nullptr);
+    connect_nodes(param_linker, func_param, nullptr);
 
     //-------------------------------------------------------------------//
 
@@ -635,7 +630,42 @@ node_t* get_func(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_scan(frontend_ctx_t* ctx)
+node_t* get_func_use_params(lang_ctx_t* ctx, int* n_params)
+{
+    ASSERT(ctx);
+    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+
+    //-------------------------------------------------------------------//
+
+    if (_CURRENT_NODE->value.operator_code != PARAM_LINKER)
+    {
+        return nullptr;
+    }
+
+    (*n_params)++;
+
+    //-------------------------------------------------------------------//
+
+    node_t* params = _CURRENT_NODE;
+
+    ctx->pos++;
+
+    //-------------------------------------------------------------------//
+
+    node_t* param = get_expression(ctx);
+
+    node_t* next_param = get_func_use_params(ctx, n_params);
+
+    connect_nodes(params, param, next_param);
+
+    //-------------------------------------------------------------------//
+
+    return params;
+}
+
+//===================================================================//
+
+node_t* get_scan(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -654,6 +684,12 @@ node_t* get_scan(frontend_ctx_t* ctx)
 
     //-------------------------------------------------------------------//
 
+    _CHECK_OPERATOR(PARAM_LINKER);
+
+    node_t* param_linker = _CURRENT_NODE;
+
+    ctx->pos++;
+
     _CHECK_TYPE(IDENTIFIER);
 
     if (_ID(_CURRENT_NODE).type != VAR)
@@ -661,7 +697,8 @@ node_t* get_scan(frontend_ctx_t* ctx)
         _EXPECTED("var");
     }
 
-    connect_nodes(node_scan, _CURRENT_NODE, nullptr);
+    connect_nodes(node_scan, param_linker, nullptr);
+    connect_nodes(param_linker, _CURRENT_NODE, nullptr);
 
     ctx->pos++;
 
@@ -678,7 +715,7 @@ node_t* get_scan(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_assignment(frontend_ctx_t* ctx)
+node_t* get_assignment(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -717,14 +754,25 @@ node_t* get_assignment(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_call(frontend_ctx_t* ctx)
+node_t* get_call(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
 
     //-------------------------------------------------------------------//
 
-    node_t* func_name = _CURRENT_NODE;
+    node_t* node_call = _CURRENT_NODE;
+
+    ctx->pos++;
+
+    _CHECK_TYPE(IDENTIFIER);
+
+    if (_CURRENT_ID.type != FUNC)
+    {
+        _EXPECTED("func");
+    }
+
+    node_t* node_func = _CURRENT_NODE;
 
     ctx->pos++;
 
@@ -734,24 +782,41 @@ node_t* get_call(frontend_ctx_t* ctx)
 
     ctx->pos++;
 
-    node_t* func_args = get_expression(ctx);
+    //-------------------------------------------------------------------//
+
+    int n_params = 0;
+
+    node_t* func_param = get_func_use_params(ctx, &n_params);
 
     _CHECK_OPERATOR(CLOSE_BRACKET);
 
     ctx->pos++;
 
+    if (n_params != _ID(node_func).n_params)
+    {
+        _SYNTAX_ERROR("function "
+                      _PURPLE("%s")
+                      " gets "
+                      _YELLOW("%d") " params "
+                      "but given %d",
+                      _ID(node_func).name,
+                      _ID(node_func).n_params,
+                      n_params);
+    }
+
     //-------------------------------------------------------------------//
 
-    connect_nodes(func_name, func_args, nullptr);
+    connect_nodes(node_call, node_func,  nullptr);
+    connect_nodes(node_func, func_param, nullptr);
 
     //-------------------------------------------------------------------//
 
-    return func_name;
+    return node_call;
 }
 
 //===================================================================//
 
-node_t* get_expression(frontend_ctx_t* ctx)
+node_t* get_expression(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -781,7 +846,7 @@ node_t* get_expression(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_mul_div_expression(frontend_ctx_t* ctx)
+node_t* get_mul_div_expression(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -811,7 +876,7 @@ node_t* get_mul_div_expression(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_in_parent_expression(frontend_ctx_t* ctx)
+node_t* get_in_parent_expression(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -840,7 +905,7 @@ node_t* get_in_parent_expression(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_single_expression(frontend_ctx_t* ctx)
+node_t* get_single_expression(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
     VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
@@ -855,7 +920,7 @@ node_t* get_single_expression(frontend_ctx_t* ctx)
     {
         case OPERATOR:
         {
-            if (ctx->pos < ctx->n_nodes                        &&
+            if (ctx->pos < ctx->n_nodes                   &&
                 _CURRENT_NODE->value.operator_code == COS ||
                 _CURRENT_NODE->value.operator_code == SIN)
             {
@@ -864,39 +929,30 @@ node_t* get_single_expression(frontend_ctx_t* ctx)
                 break;
             }
 
-            _EXPECTED("calculation func.");
+            else if (ctx->pos < ctx->n_nodes &&
+                     _CURRENT_NODE->value.operator_code == CALL)
+            {
+                single_expression = get_call(ctx);
+            }
+
+            _EXPECTED("calculation func or call");
         }
 
         case IDENTIFIER:
         {
-            switch (_ID(_CURRENT_NODE).type)
+            if (_ID(_CURRENT_NODE).type != VAR)
             {
-                case VAR:
-                {
-                    if (!_ID(_CURRENT_NODE).is_inited)
-                    {
-                        _NOT_INIT_ERROR;
-                    }
-
-                    single_expression = _CURRENT_NODE;
-
-                    ctx->pos++;
-
-                    break;
-                }
-                case FUNC:
-                {
-                    single_expression = get_call(ctx);
-
-                    break;
-                }
-                default:
-                {
-                    _NOT_INIT_ERROR;
-
-                    break;
-                }
+                _EXPECTED("VAR");
             }
+
+            if (!_ID(_CURRENT_NODE).is_inited)
+            {
+                _NOT_INIT_ERROR;
+            }
+
+            single_expression = _CURRENT_NODE;
+
+            ctx->pos++;
 
             break;
         }
@@ -921,8 +977,32 @@ node_t* get_single_expression(frontend_ctx_t* ctx)
     return single_expression;
 }
 
-//———————————————————————————————————————————————————————————————————//
+//===================================================================//
 
+void connect_nodes (node_t* parent, node_t* left, node_t* right)
+{
+    ASSERT(parent);
+
+    //-------------------------------------------------------------------//
+
+    if (left)  parent->left  = left;
+    if (right) parent->right = right;
+}
+
+//===================================================================//
+
+const char* type_name(value_type_t type)
+{
+    switch (type)
+    {
+        case OPERATOR:   return "OPERATOR";
+        case NUMBER:     return "NUMBER";
+        case IDENTIFIER: return "IDENTIFIER";
+        default:         return "GOUDA";
+    }
+}
+
+//———————————————————————————————————————————————————————————————————//
 
 #undef _RED
 #undef _GREEN

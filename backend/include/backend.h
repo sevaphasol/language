@@ -13,8 +13,25 @@ const char* const DefaultOutput = "exmpl_res.txt";
 
 //———————————————————————————————————————————————————————————————————//
 
-lang_status_t tokenize        (lang_ctx_t* ctx);
-lang_status_t syntax_analysis (lang_ctx_t* ctx);
+struct node_allocator_t;
+
+struct name_table_t
+{
+    size_t        n_names;
+    identifier_t* table;
+};
+
+struct backend_ctx_t
+{
+    FILE*             input_file;
+    FILE*             output_file;
+
+    node_allocator_t* node_allocator;
+
+    node_t**          nodes;
+    size_t            n_nodes;
+    name_table_t      name_table;
+};
 
 //———————————————————————————————————————————————————————————————————//
 

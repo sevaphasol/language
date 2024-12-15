@@ -19,18 +19,14 @@
 
 //———————————————————————————————————————————————————————————————————//
 
-static node_t* get_token    (frontend_ctx_t* ctx);
-static node_t* get_str_node (frontend_ctx_t* ctx, const char* str);
+static node_t* get_token    (lang_ctx_t* ctx);
+static node_t* get_str_node (lang_ctx_t* ctx, const char* str);
 
 //———————————————————————————————————————————————————————————————————//
 
-lang_status_t tokenize(frontend_ctx_t* ctx)
+lang_status_t tokenize(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
-
-    //-------------------------------------------------------------------//
-
-    // ctx->nodes[ctx->n_nodes++] = _OPERATOR(STATEMENT);
 
     //-------------------------------------------------------------------//
 
@@ -71,7 +67,7 @@ bool acceptable_symbol(char symbol)
 
 //===================================================================//
 
-node_t* get_token(frontend_ctx_t* ctx)
+node_t* get_token(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
 
@@ -127,7 +123,7 @@ node_t* get_token(frontend_ctx_t* ctx)
 
 //===================================================================//
 
-node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
+node_t* get_str_node(lang_ctx_t* ctx, const char* str)
 {
     ASSERT(ctx);
     ASSERT(str);
@@ -176,6 +172,6 @@ node_t* get_str_node(frontend_ctx_t* ctx, const char* str)
 #undef _YELLOW
 #undef _BLUE
 #undef _PURPLE
-#undef _TURQUOIS
+#undef _TURQUOISE
 
 //———————————————————————————————————————————————————————————————————//
