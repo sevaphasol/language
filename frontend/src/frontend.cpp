@@ -124,10 +124,10 @@ lang_status_t tree_output(lang_ctx_t* ctx, node_t* node, size_t level)
 
     //-------------------------------------------------------------------//
 
-    for (int i = 0; i < level; i++)
-    {
-        fputc('\t', ctx->output_file);
-    }
+    // for (int i = 0; i < level; i++)
+    // {
+    //     fputc('\t', ctx->output_file);
+    // }
 
     fprintf(ctx->output_file, "{%d ", node->value_type);
 
@@ -135,19 +135,19 @@ lang_status_t tree_output(lang_ctx_t* ctx, node_t* node, size_t level)
     {
         case OPERATOR:
         {
-            fprintf(ctx->output_file, "%d", node->value.operator_code);
+            fprintf(ctx->output_file, "%d ", node->value.operator_code);
 
             break;
         }
         case IDENTIFIER:
         {
-            fprintf(ctx->output_file, "%ld", node->value.id_index);
+            fprintf(ctx->output_file, "%ld ", node->value.id_index);
 
             break;
         }
         case NUMBER:
         {
-            fprintf(ctx->output_file, "%d", node->value.number);
+            fprintf(ctx->output_file, "%d ", node->value.number);
             break;
         }
         default:
@@ -159,23 +159,30 @@ lang_status_t tree_output(lang_ctx_t* ctx, node_t* node, size_t level)
 
     if (node->left)
     {
-        fputc('\n', ctx->output_file);
         tree_output(ctx, node->left,  level + 1);
+    }
+    else
+    {
+        fputs(" _ ", ctx->output_file);
     }
     if (node->right)
     {
         tree_output(ctx, node->right, level + 1);
     }
-
-    if (node->left || node->right)
+    else
     {
-        for (int i = 0; i < level; i++)
-        {
-            fputc('\t', ctx->output_file);
-        }
+        fputs(" _ ", ctx->output_file);
     }
+//
+//     if (node->left || node->right)
+//     {
+//         for (int i = 0; i < level; i++)
+//         {
+//             fputc('\t', ctx->output_file);
+//         }
+//     }
 
-    fputs("}\n",  ctx->output_file);
+    fputs("} ",  ctx->output_file);
 
     //-------------------------------------------------------------------//
 

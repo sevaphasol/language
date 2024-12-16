@@ -243,7 +243,8 @@ node_t* get_func_declaration(lang_ctx_t* ctx)
 
     int n_params = 0;
 
-    node_t* func_params = get_func_params(ctx, &n_params);
+    node_t* func_params = nullptr;
+    get_func_params(ctx, &n_params, &func_params);
 
     //-------------------------------------------------------------------//
 
@@ -269,7 +270,7 @@ node_t* get_func_declaration(lang_ctx_t* ctx)
 
     _ID(func_name).is_inited  = true;
     _ID(func_name).type       = FUNC;
-    _ID(func_name).n_params = n_params;
+    _ID(func_name).n_params   = n_params;
 
     //-------------------------------------------------------------------//
 

@@ -3,6 +3,11 @@ sosal? krosovka b = 1
 sosal? korobka huy(krasivaya krosovka v)
 {
     sosal? print(krasivaya v + 1)
+
+    sosal? if (1)
+    {
+        sosal? print(krasivaya 1)
+    }
 }
 
 sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)

@@ -8,8 +8,6 @@
 
 //———————————————————————————————————————————————————————————————————//
 
-const char* const DefaultInput  = "exmpl_src.txt";
-const char* const DefaultOutput = "exmpl_res.txt";
 
 //———————————————————————————————————————————————————————————————————//
 

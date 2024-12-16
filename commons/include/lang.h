@@ -13,6 +13,12 @@
 
 const int MaxStrLength = 100;
 
+const char* const FrontendDefaultInput  = "exmpl_src.txt";
+const char* const FrontendDefaultOutput = "exmpl_res.txt";
+
+const char* const BackendDefaultInput  = "../../frontend/exmpl_res.txt";
+const char* const BackendDefaultOutput = "exmpl_res.asm";
+
 //———————————————————————————————————————————————————————————————————//
 
 enum lang_status_t
@@ -73,6 +79,7 @@ struct lang_ctx_t
     size_t            cur_line;
     char*             code;
 
+    node_t*           tree;
     size_t            pos;
 };
 

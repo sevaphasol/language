@@ -15,7 +15,7 @@ LOGS_DIR 	  	= logs
 DOT_FILES_DIR 	= $(LOGS_DIR)/dot_files
 IMAGES_DIR    	= $(LOGS_DIR)/images
 
-EXECUTABLE 	    = frontend
+EXECUTABLE 	    = backend
 EXECUTABLE_PATH = $(BUILD_DIR)/$(EXECUTABLE)
 
 SOURCE_FILES         = $(wildcard $(SOURCES_DIR)/*.cpp)

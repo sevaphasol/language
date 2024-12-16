@@ -31,6 +31,7 @@ static tree_dump_status_t create_png     (const char* dot_file_name,
 //———————————————————————————————————————————————————————————————————//
 
 tree_dump_status_t graph_dump(lang_ctx_t* ctx,
+                              node_t*     node,
                               dump_mode_t mode)
 {
     ASSERT(ctx);
@@ -55,7 +56,7 @@ tree_dump_status_t graph_dump(lang_ctx_t* ctx,
 
     if (mode == TREE)
     {
-        make_edges(ctx, ctx->nodes[0], dot_file);
+        make_edges(ctx, node, dot_file);
     }
     else if (mode == ARR)
     {
