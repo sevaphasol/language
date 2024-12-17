@@ -1,13 +1,16 @@
-sosal? krosovka b = 1
+sosal? krosovka her = 1
+sosal? krosovka penis = 1
 
 sosal? korobka huy(krasivaya krosovka v)
 {
     sosal? print(krasivaya v + 1)
 
-    sosal? if (1)
+    sosal? if (0)
     {
         sosal? print(krasivaya 1)
     }
+
+    sosal? buyTNF v
 }
 
 sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)
@@ -19,4 +22,6 @@ sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)
     sosal? please huy(krasivaya a)
 
     sosal? print(krasivaya a)
+
+    sosal? buyTNF
 }

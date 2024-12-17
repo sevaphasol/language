@@ -1,123 +1,38 @@
-#include "frontend.h"
 #include "custom_assert.h"
 #include "operators.h"
-#include "dsl.h"
 #include "node_allocator.h"
 
 //———————————————————————————————————————————————————————————————————//
 
-#define _RED(str)       "\033[31m" str "\033[0m"
-#define _GREEN(str)     "\033[32m" str "\033[0m"
-#define _YELLOW(str)    "\033[33m" str "\033[0m"
-#define _BLUE(str)      "\033[34m" str "\033[0m"
-#define _PURPLE(str)    "\033[35m" str "\033[0m"
-#define _TURQUOISE(str) "\033[36m" str "\033[0m"
-
-#define _ID(node)     ctx->name_table.table[node->value.id_index]
-#define _CURRENT_NODE ctx->nodes[ctx->pos]
-#define _CURRENT_ID   _ID(_CURRENT_NODE)
-#define _CURRENT_OP   OperatorsTable[_CURRENT_NODE->value.operator_code]
-
-//===================================================================//
-
-#define _SYNTAX_ERROR(...)                                            \
-                                                                      \
-    fprintf(stderr, _GREEN("\nDEBUG in %s:%d:%s\n\n"),                \
-                    __FILE__, __LINE__, __PRETTY_FUNCTION__);         \
-                                                                      \
-    fprintf(stderr, _RED("syntax error")                              \
-                    " in line "                                       \
-                    _YELLOW("%ld") ": ",                              \
-                    _CURRENT_NODE->line_number);                      \
-                                                                      \
-    fprintf(stderr, ##__VA_ARGS__);                                   \
-                                                                      \
-    fputc('\n', stderr);                                              \
-                                                                      \
-    return nullptr;                                                   \
-
-//===================================================================//
-
-#define _NOT_INIT_ERROR                                               \
-    _SYNTAX_ERROR(_TURQUOISE("%s")                                    \
-                             " not initialized.",                     \
-                             _CURRENT_ID.name);                       \
-
-//===================================================================//
-
-#define _EXPECTED(str)                                                \
-    _SYNTAX_ERROR("Expected " _TURQUOISE("%s") ".", str);             \
-
-//===================================================================//
-
-#define _CHECK_TYPE(__type__)                                         \
-                                                                      \
-    if (_CURRENT_NODE->value_type != __type__)                        \
-    {                                                                 \
-        if (_CURRENT_NODE->value_type == IDENTIFIER)                  \
-        {                                                             \
-            fprintf(stderr, _RED("unexpected ")                       \
-                            _PURPLE("%s") ".\n",                      \
-                            _CURRENT_ID.name);                        \
-        }                                                             \
-        _SYNTAX_ERROR("Expected type " _PURPLE("%s") ". "             \
-                      "Got type " _PURPLE("%s") " instead.",          \
-                      type_name(__type__),                            \
-                      type_name(_CURRENT_NODE->value_type));          \
-                                                                      \
-    }                                                                 \
-
-//===================================================================//
-
-#define _CHECK_OPERATOR(__code__)                                     \
-                                                                      \
-    if (ctx->pos >= ctx->n_nodes)                                     \
-    {                                                                 \
-        fprintf(stderr, "sosal?\n");                                  \
-        return nullptr;                                               \
-    }                                                                 \
-                                                                      \
-    _CHECK_TYPE(OPERATOR);                                            \
-                                                                      \
-    if (_CURRENT_NODE->value.operator_code != __code__)               \
-    {                                                                 \
-        _SYNTAX_ERROR("Expected " _PURPLE("\"%s\"") ". "              \
-                      "Got " _PURPLE("\"%s\"") " instead.",           \
-                      OperatorsTable[__code__].name,                  \
-                      _CURRENT_OP.name);                              \
-    }                                                                 \
-
-//===================================================================//
-
-#define _CHECK_REDECLARATION(node)                                    \
-                                                                      \
-    if (_ID(node).is_inited)                                          \
-    {                                                                 \
-        _SYNTAX_ERROR("Redeclaration of "                             \
-                      _TURQUOISE("%s") ".",                           \
-                      _ID(node).name)                                 \
-    }                                                                 \
+#define _DSL_DEFINE_
+#include "dsl.h"
 
 //———————————————————————————————————————————————————————————————————//
 
-static node_t*       get_global_statement     (lang_ctx_t* ctx);
-static node_t*       get_declaration          (lang_ctx_t* ctx);
-static node_t*       get_func_declaration     (lang_ctx_t* ctx);
-static node_t*       get_func_params          (lang_ctx_t* ctx, int* n_params);
-static node_t*       get_body                 (lang_ctx_t* ctx);
-static node_t*       get_var_declaration      (lang_ctx_t* ctx);
-static node_t*       get_statement            (lang_ctx_t* ctx);
-static node_t*       get_standart_func        (lang_ctx_t* ctx);
-static node_t*       get_if                   (lang_ctx_t* ctx);
-static node_t*       get_return               (lang_ctx_t* ctx);
-static node_t*       get_func                 (lang_ctx_t* ctx);
-static node_t*       get_call                 (lang_ctx_t* ctx);
-static node_t*       get_scan                 (lang_ctx_t* ctx);
-static node_t*       get_assignment           (lang_ctx_t* ctx);
-static node_t*       get_expression           (lang_ctx_t* ctx);
-static node_t*       get_mul_div_expression   (lang_ctx_t* ctx);
-static node_t*       get_in_parent_expression (lang_ctx_t* ctx);
-static node_t*       get_single_expression    (lang_ctx_t* ctx);
+lang_status_t syntax_analysis (lang_ctx_t* ctx);
+
+//-------------------------------------------------------------------//
+
+static lang_status_t get_global_statement     (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_declaration          (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_func_declaration     (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_func_params          (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
+static lang_status_t get_func_use_params      (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
+static lang_status_t get_body                 (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_var_declaration      (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_statement            (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_standart_func        (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_if                   (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_return               (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_func                 (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_call                 (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_scan                 (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_assignment           (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_expression           (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_mul_div_expression   (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_in_parent_expression (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_single_expression    (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_ret                  (lang_ctx_t* ctx, node_t** ret_node);
 
 static void          connect_nodes            (node_t* parent, node_t* left, node_t* right);
 static const char*   type_name                (value_type_t    type);
@@ -129,865 +44,797 @@ lang_status_t syntax_analysis(lang_ctx_t* ctx)
     ASSERT(ctx)
     ASSERT(ctx->nodes)
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    ctx->nodes[0] = get_global_statement(ctx);
+    VERIFY(get_global_statement(ctx, &ctx->nodes[0]),
+           return LANG_GET_GLOBAL_STATEMENT_ERROR);
 
     VERIFY(!ctx->nodes[0],
            return LANG_SYNTAX_ERROR);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_global_statement(lang_ctx_t* ctx)
+lang_status_t get_global_statement(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* global_statement = ctx->nodes[ctx->pos];
-
+    *ret_node = _CURRENT_NODE;
     _CHECK_OPERATOR(STATEMENT);
+    _NEXT_POS;
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_declaration(ctx, &(*ret_node)->left),
+           return LANG_GET_DECLARATION_ERROR);
 
-    node_t* global_statement_body = get_declaration(ctx);
-    node_t* next_global_statement = nullptr;
+    //---------------------------------------------------------------//
 
-    if (ctx->pos < ctx->n_nodes - 1                    &&
-        _CURRENT_NODE->value_type          == OPERATOR &&
-        _CURRENT_NODE->value.operator_code == STATEMENT)
+    if (_IS_OPERATOR(STATEMENT))
     {
-        next_global_statement = get_global_statement(ctx);
+        VERIFY(get_global_statement(ctx, &(*ret_node)->right),
+               return LANG_GET_GLOBAL_STATEMENT_ERROR);
     }
 
-    connect_nodes(global_statement,
-                  global_statement_body,
-                  next_global_statement);
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    return global_statement;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_declaration(lang_ctx_t* ctx)
+lang_status_t get_declaration(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
+
+    //---------------------------------------------------------------//
+
+    *ret_node = _CURRENT_NODE;
+
+    //---------------------------------------------------------------//
+
+    if (_IS_OPERATOR(NEW_FUNC))
+    {
+        VERIFY(get_func_declaration(ctx, ret_node),
+               return LANG_GET_FUNC_DECLARATION_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(NEW_VAR))
+    {
+        VERIFY(get_var_declaration(ctx, ret_node),
+               return LANG_GET_VAR_DECLARATION);
+        return LANG_SUCCESS;
+    }
 
     //-------------------------------------------------------------------//
 
-    node_t* declaration = ctx->nodes[ctx->pos];
-
-    //-------------------------------------------------------------------//
-
-    if (declaration->value.operator_code == NEW_FUNC)
-    {
-        declaration = get_func_declaration(ctx);
-    }
-    else if (declaration->value.operator_code == NEW_VAR)
-    {
-        declaration = get_var_declaration(ctx);
-    }
-    else
-    {
-        _EXPECTED("declaration");
-    }
-
-    //-------------------------------------------------------------------//
-
-    return declaration;
+    _EXPECTED("declaration");
 }
 
 //===================================================================//
 
-node_t* get_func_declaration(lang_ctx_t* ctx)
+lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* func_declaration = _CURRENT_NODE;
-
+    *ret_node = _CURRENT_NODE;
     _CHECK_OPERATOR(NEW_FUNC);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    node_t* func_name = _CURRENT_NODE;
-
+    (*ret_node)->left = _CURRENT_NODE;
     _CHECK_TYPE(IDENTIFIER);
+    _CHECK_REDECLARATION((*ret_node)->left);
+    _NEXT_POS
 
-    _CHECK_REDECLARATION(func_name);
-
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(OPEN_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     int n_params = 0;
 
-    node_t* func_params = nullptr;
-    get_func_params(ctx, &n_params, &func_params);
+    VERIFY(get_func_params(ctx, &(*ret_node)->left->left, &n_params),
+           return LANG_GET_FUNC_PARAMS_ERROR);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(CLOSE_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_body(ctx, &(*ret_node)->left->right),
+           return LANG_GET_BODY_ERROR);
 
-    node_t* func_body = get_body(ctx);
+    //---------------------------------------------------------------//
 
-    if (!func_body)
-    {
-        _SYNTAX_ERROR("empty func body");
-    }
+    _ID((*ret_node)->left).is_inited  = true;
+    _ID((*ret_node)->left).type       = FUNC;
+    _ID((*ret_node)->left).n_params   = n_params;
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    connect_nodes(func_declaration, func_name,   nullptr);
-    connect_nodes(func_name,        func_params, func_body);
-
-    //-------------------------------------------------------------------//
-
-    _ID(func_name).is_inited  = true;
-    _ID(func_name).type       = FUNC;
-    _ID(func_name).n_params   = n_params;
-
-    //-------------------------------------------------------------------//
-
-    return func_declaration;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_func_params(lang_ctx_t* ctx, int* n_params)
+lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    if (_CURRENT_NODE->value.operator_code != PARAM_LINKER)
-    {
-        return nullptr;
-    }
+    if (!(_IS_OPERATOR(PARAM_LINKER))) { return LANG_SUCCESS; }
 
     (*n_params)++;
 
-    //-------------------------------------------------------------------//
+    //--------------------------------------------------------------//
 
-    node_t* param = _CURRENT_NODE;
+    *ret_node = _CURRENT_NODE;
 
-    ctx->pos++;
+    _NEXT_POS
+
+    //--------------------------------------------------------------//
 
     _CHECK_TYPE(OPERATOR);
     _CHECK_OPERATOR(NEW_VAR);
 
-    node_t* var_declaration = _CURRENT_NODE;
+    (*ret_node)->left = _CURRENT_NODE;
 
-    ctx->pos++;
+    _NEXT_POS
 
-    //-------------------------------------------------------------------//
+    //--------------------------------------------------------------//
 
-    node_t* var_name = _CURRENT_NODE;
+    (*ret_node)->left->left = _CURRENT_NODE;
 
     _CHECK_TYPE(IDENTIFIER);
+    _CHECK_REDECLARATION(_CURRENT_NODE);
 
-    _CHECK_REDECLARATION(var_name);
+    _CURRENT_ID.is_inited = true;
+    _CURRENT_ID.type      = VAR;
 
-    _ID(var_name).is_inited = true;
-    _ID(var_name).type      = VAR;
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_func_params(ctx, &(*ret_node)->right, n_params),
+           return LANG_GET_FUNC_PARAMS_ERROR);
 
-    connect_nodes(var_declaration, var_name, nullptr);
+    //---------------------------------------------------------------//
 
-    node_t* next_param = get_func_params(ctx, n_params);
-
-    connect_nodes(param, var_declaration, next_param);
-
-    //-------------------------------------------------------------------//
-
-    return param;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_var_declaration(lang_ctx_t* ctx)
+lang_status_t get_var_declaration(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     node_t* var_declaration = _CURRENT_NODE;
-
     _CHECK_OPERATOR(NEW_VAR);
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     node_t* var_name = _CURRENT_NODE;
-
     _CHECK_TYPE(IDENTIFIER);
+    _CHECK_REDECLARATION(_CURRENT_NODE);
+    _NEXT_POS
 
-    _CHECK_REDECLARATION(var_name);
-
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
-
-    _CHECK_OPERATOR(ASSIGNMENT);
+    //---------------------------------------------------------------//
 
     node_t* assignment = _CURRENT_NODE;
+    _CHECK_OPERATOR(ASSIGNMENT);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_expression(ctx, &assignment->right),
+           return LANG_GET_EXPRESSION_ERROR);
 
-    node_t* var_value = get_expression(ctx);
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    connect_nodes(var_declaration, var_name, var_value);
+    var_declaration->left = var_name;
+    assignment->left      = var_declaration;
+    *ret_node = assignment;
 
     _ID(var_name).is_inited = true;
     _ID(var_name).type      = VAR;
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    return var_declaration;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_body(lang_ctx_t* ctx)
+lang_status_t get_body(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(BODY_START);
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(STATEMENT);
 
-    node_t* body = _CURRENT_NODE;
-    node_t* cur_statement  = body;
+    *ret_node              = _CURRENT_NODE;
+    node_t* cur_statement  = _CURRENT_NODE;
 
-    ctx->pos++;
+    _NEXT_POS
 
-    node_t* statement_body = get_statement(ctx);
+    VERIFY(get_statement(ctx, &cur_statement->left),
+           return LANG_GET_STATEMENT_ERROR);
 
-    connect_nodes(cur_statement, statement_body, nullptr);
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    while(_CURRENT_NODE->value.operator_code == STATEMENT)
+    while (_IS_OPERATOR(STATEMENT))
     {
-        connect_nodes(cur_statement, nullptr, _CURRENT_NODE);
+        cur_statement->right = _CURRENT_NODE;
+        cur_statement        = _CURRENT_NODE;
 
-        cur_statement = _CURRENT_NODE;
+        _NEXT_POS
 
-        ctx->pos++;
-
-        statement_body = get_statement(ctx);
-
-        if (!statement_body)
-        {
-            _SYNTAX_ERROR("empty statement.");
-        }
-
-        connect_nodes(cur_statement, statement_body, nullptr);
+        VERIFY(get_statement(ctx, &cur_statement->left),
+               return LANG_GET_STATEMENT_ERROR);
     }
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(BODY_END);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    return body;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_statement(lang_ctx_t* ctx)
+lang_status_t get_statement(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    switch (_CURRENT_NODE->value_type)
+    if (_IS_TYPE(OPERATOR))
     {
-        case OPERATOR:
-        {
-            return get_standart_func(ctx);
-        }
-        case IDENTIFIER:
-        {
-            if(_ID(_CURRENT_NODE).type == VAR)
-            {
-                return get_assignment(ctx);
-            }
-            else
-            {
-                _NOT_INIT_ERROR;
-            }
-
-            break;
-        }
-
-        default:
-        {
-            _EXPECTED("OPERATOR or IDENTIFIER");
-
-            break;
-        }
+        VERIFY(get_standart_func(ctx, ret_node),
+               return LANG_GET_STANDART_FUNC_ERROR);
+        return LANG_SUCCESS;
     }
 
-    //-------------------------------------------------------------------//
+    if (_IS_TYPE(IDENTIFIER))
+    {
+        if(!(_CURRENT_ID.type == VAR)) { _NOT_INIT_ERROR; }
 
-    return nullptr;
+        VERIFY(get_assignment(ctx, ret_node),
+               return LANG_GET_ASSIGNMENT_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    //---------------------------------------------------------------//
+
+    _EXPECTED("OPERATOR or IDENTIFIER");
 }
 
 //===================================================================//
 
-node_t* get_standart_func(lang_ctx_t* ctx)
+lang_status_t get_standart_func(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_TYPE(OPERATOR);
 
-    switch(_CURRENT_NODE->value.operator_code)
+    if (_IS_OPERATOR(IF) ||
+        _IS_OPERATOR(WHILE))
     {
-        case IF:      return get_if(ctx);
-        case WHILE:   return get_if(ctx);
-        case RET:     return get_return(ctx);
-        case COS:     return get_func(ctx);
-        case SIN:     return get_func(ctx);
-        case PRINT:   return get_func(ctx);
-        case SCAN:    return get_scan(ctx);
-        case NEW_VAR: return get_var_declaration(ctx);
-        case CALL:    return get_call(ctx);
-        default:
-        {
-            _SYNTAX_ERROR("Expected standart func. Got "
-                          _PURPLE("%s") " instead.",
-                          _CURRENT_OP.name);
-            break;
-        }
+        VERIFY(get_if(ctx, ret_node),
+               return LANG_GET_IF_ERROR);
+        return LANG_SUCCESS;
     }
 
-    return nullptr;
+    if (_IS_OPERATOR(RET))
+    {
+        VERIFY(get_return(ctx, ret_node),
+               return LANG_GET_RETURN_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(COS) ||
+        _IS_OPERATOR(SIN) ||
+        _IS_OPERATOR(OUT) )
+    {
+        VERIFY(get_func(ctx, ret_node),
+               return LANG_GET_FUNC_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(IN))
+    {
+        VERIFY(get_scan(ctx, ret_node),
+               return LANG_GET_SCAN_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(NEW_VAR))
+    {
+        VERIFY(get_var_declaration(ctx, ret_node),
+               return LANG_GET_VAR_DECLARATION_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(CALL))
+    {
+        VERIFY(get_call(ctx, ret_node),
+               return LANG_GET_CALL_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    //---------------------------------------------------------------//
+
+    _SYNTAX_ERROR("Expected standart func. Got "
+                  _PURPLE("%s") " instead.",
+                  _CURRENT_OP.name);
 }
 
 //===================================================================//
 
-node_t* get_if(lang_ctx_t* ctx)
+lang_status_t get_if(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* node_if = _CURRENT_NODE;
+    *ret_node = _CURRENT_NODE;
 
-    ctx->pos++;
+    _NEXT_POS
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(OPEN_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
-
-    node_t* condition = get_expression(ctx);
+    VERIFY(get_expression(ctx, &(*ret_node)->left),
+           return LANG_GET_EXPRESSION_ERROR);
 
     _CHECK_OPERATOR(CLOSE_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_body(ctx, &(*ret_node)->right),
+           return LANG_GET_BODY_ERROR);
 
-    node_t* body = get_body(ctx);
+    //---------------------------------------------------------------//
 
-    if(!body)
-    {
-        _SYNTAX_ERROR("empty body");
-    }
-
-    //-------------------------------------------------------------------//
-
-    connect_nodes(node_if, condition, body);
-
-    return node_if;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_return(lang_ctx_t* ctx)
+lang_status_t get_return(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(RET);
+    *ret_node = _CURRENT_NODE;
+    _NEXT_POS
 
-    node_t* node_ret = _CURRENT_NODE;
+    //---------------------------------------------------------------//
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
-
-    node_t* ret_value = get_expression(ctx);
-
-    //-------------------------------------------------------------------//
-
-    connect_nodes(node_ret, ret_value, nullptr);
-
-    //-------------------------------------------------------------------//
-
-    return node_ret;
-}
-
-//===================================================================//
-
-node_t* get_func(lang_ctx_t* ctx)
-{
-   ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
-
-    //-------------------------------------------------------------------//
-
-    node_t* node_func = _CURRENT_NODE;
-
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
-
-    _CHECK_OPERATOR(OPEN_BRACKET);
-
-    ctx->pos++;
-
-    _CHECK_OPERATOR(PARAM_LINKER);
-
-    node_t* param_linker = _CURRENT_NODE;
-
-    ctx->pos++;
-
-    node_t* func_param = get_expression(ctx);
-
-    while (_CURRENT_NODE->value.operator_code != CLOSE_BRACKET)
+    if (!(_IS_OPERATOR(BODY_END)))
     {
-        ctx->pos++;
+        VERIFY(get_expression(ctx, &(*ret_node)->left),
+               return LANG_GET_EXPRESSION_ERROR);
     }
 
-    _CHECK_OPERATOR(CLOSE_BRACKET);
+    //---------------------------------------------------------------//
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
-
-    connect_nodes(node_func, param_linker, nullptr);
-    connect_nodes(param_linker, func_param, nullptr);
-
-    //-------------------------------------------------------------------//
-
-    return node_func;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_func_use_params(lang_ctx_t* ctx, int* n_params)
+lang_status_t get_func(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    if (_CURRENT_NODE->value.operator_code != PARAM_LINKER)
-    {
-        return nullptr;
-    }
+    *ret_node = _CURRENT_NODE;
+
+    _NEXT_POS
+
+    _CHECK_OPERATOR(OPEN_BRACKET);
+    _NEXT_POS
+
+    _CHECK_OPERATOR(PARAM_LINKER);
+    (*ret_node)->left = _CURRENT_NODE;
+    _NEXT_POS
+
+    VERIFY(get_expression(ctx, &(*ret_node)->left),
+           return LANG_GET_EXPRESSION_ERROR);
+
+    _CHECK_OPERATOR(CLOSE_BRACKET);
+    _NEXT_POS
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+// ===================================================================//
+
+lang_status_t get_func_use_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
+{
+    ASSERT(ctx);
+    ASSERT(ret_node);
+
+    //---------------------------------------------------------------//
+
+    if (!(_IS_OPERATOR(PARAM_LINKER))) return LANG_SUCCESS;
 
     (*n_params)++;
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* params = _CURRENT_NODE;
+    *ret_node = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_expression(ctx, &(*ret_node)->left),
+           return LANG_GET_EXPRESSION_ERROR);
 
-    node_t* param = get_expression(ctx);
+    VERIFY(get_func_use_params(ctx, &(*ret_node)->right, n_params),
+           return LANG_GET_FUNC_USE_PARAMS_ERROR);
 
-    node_t* next_param = get_func_use_params(ctx, n_params);
+    //---------------------------------------------------------------//
 
-    connect_nodes(params, param, next_param);
-
-    //-------------------------------------------------------------------//
-
-    return params;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_scan(lang_ctx_t* ctx)
+lang_status_t get_scan(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* node_scan = _CURRENT_NODE;
+    *ret_node = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(OPEN_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(PARAM_LINKER);
+    (*ret_node)->left = _CURRENT_NODE;
+    _NEXT_POS
 
-    node_t* param_linker = _CURRENT_NODE;
-
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
     _CHECK_TYPE(IDENTIFIER);
 
-    if (_ID(_CURRENT_NODE).type != VAR)
-    {
-        _EXPECTED("var");
-    }
+    if (_ID(_CURRENT_NODE).type != VAR) { _EXPECTED("var"); }
 
-    connect_nodes(node_scan, param_linker, nullptr);
-    connect_nodes(param_linker, _CURRENT_NODE, nullptr);
+    (*ret_node)->left->left = _CURRENT_NODE;
 
-    ctx->pos++;
+    _NEXT_POS
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(CLOSE_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
-
-    return node_scan;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_assignment(lang_ctx_t* ctx)
+lang_status_t get_assignment(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_TYPE(IDENTIFIER);
 
-    if (_ID(_CURRENT_NODE).type != VAR)
-    {
-        _EXPECTED("var");
-    }
+    if (_ID(_CURRENT_NODE).type != VAR) { _EXPECTED("var"); }
 
     node_t* var = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(ASSIGNMENT);
-
     node_t* assignment = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    VERIFY(get_expression(ctx, &assignment->right),
+           return LANG_GET_EXPRESSION_ERROR);
 
-    node_t* var_value = get_expression(ctx);
+    //---------------------------------------------------------------//
 
-    //-------------------------------------------------------------------//
+    assignment->left = var;
+    (*ret_node) = assignment;
 
-    connect_nodes(assignment, var, var_value);
-
-    return assignment;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_call(lang_ctx_t* ctx)
+lang_status_t get_ret(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* node_call = _CURRENT_NODE;
+    _CHECK_OPERATOR(RET);
+    *ret_node = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t get_call(lang_ctx_t* ctx, node_t** ret_node)
+{
+    ASSERT(ctx);
+    ASSERT(ret_node);
+
+    //---------------------------------------------------------------//
+
+    *ret_node = _CURRENT_NODE;
+    _NEXT_POS
 
     _CHECK_TYPE(IDENTIFIER);
 
-    if (_CURRENT_ID.type != FUNC)
-    {
-        _EXPECTED("func");
-    }
+    if (_CURRENT_ID.type != FUNC) { _EXPECTED("func"); }
 
-    node_t* node_func = _CURRENT_NODE;
+    (*ret_node)->left = _CURRENT_NODE;
+    _NEXT_POS
 
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _CHECK_OPERATOR(OPEN_BRACKET);
-
-    ctx->pos++;
-
-    //-------------------------------------------------------------------//
+    _NEXT_POS
 
     int n_params = 0;
 
-    node_t* func_param = get_func_use_params(ctx, &n_params);
+    VERIFY(get_func_use_params(ctx, &(*ret_node)->left->left, &n_params),
+           return LANG_GET_FUNC_PARAMS_ERROR);
 
     _CHECK_OPERATOR(CLOSE_BRACKET);
+    _NEXT_POS
 
-    ctx->pos++;
+    //---------------------------------------------------------------//
 
-    if (n_params != _ID(node_func).n_params)
+    if (n_params != _ID((*ret_node)->left).n_params)
     {
-        _SYNTAX_ERROR("function "
-                      _PURPLE("%s")
-                      " gets "
-                      _YELLOW("%d") " params "
-                      "but given %d",
-                      _ID(node_func).name,
-                      _ID(node_func).n_params,
-                      n_params);
+        _INVALID_PARAMS_MESSAGE((*ret_node));
     }
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    connect_nodes(node_call, node_func,  nullptr);
-    connect_nodes(node_func, func_param, nullptr);
-
-    //-------------------------------------------------------------------//
-
-    return node_call;
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_expression(lang_ctx_t* ctx)
+lang_status_t get_expression(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* cur_expression = get_mul_div_expression(ctx);
+    node_t* cur_expression = nullptr;
 
-    while (ctx->pos < ctx->n_nodes                        &&
-           _CURRENT_NODE->value_type          == OPERATOR &&
-          (_CURRENT_NODE->value.operator_code == ADD      ||
-           _CURRENT_NODE->value.operator_code == SUB))
+    VERIFY(get_mul_div_expression(ctx, &cur_expression),
+           return LANG_GET_MUL_DIV_EXPRESSION_ERROR);
+
+    while (_IS_OPERATOR(ADD) ||
+           _IS_OPERATOR(SUB))
     {
         node_t* operation = _CURRENT_NODE;
+        operation->left   = cur_expression;
+        _NEXT_POS
 
-        ctx->pos++;
-
-        node_t* next_expression = get_mul_div_expression(ctx);
-
-        connect_nodes(operation, cur_expression, next_expression);
+        VERIFY(get_mul_div_expression(ctx, &operation->right),
+               return LANG_GET_MUL_DIV_EXPRESSION);
 
         cur_expression = operation;
     }
 
-    return cur_expression;
+    *ret_node = cur_expression;
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_mul_div_expression(lang_ctx_t* ctx)
+lang_status_t get_mul_div_expression(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* cur_mul_div_expression = get_in_parent_expression(ctx);
+    node_t* cur_mul_div_expression = nullptr;
 
-    while (ctx->pos < ctx->n_nodes                        &&
-           _CURRENT_NODE->value_type          == OPERATOR &&
-          (_CURRENT_NODE->value.operator_code == MUL      ||
-           _CURRENT_NODE->value.operator_code == DIV))
+    VERIFY(get_in_parent_expression(ctx, &cur_mul_div_expression),
+           return LANG_GET_IN_PARENT_EXPRESSION_ERROR);
+
+    while (_IS_OPERATOR(MUL) ||
+           _IS_OPERATOR(DIV))
     {
         node_t* operation = _CURRENT_NODE;
+        operation->left   = _CURRENT_NODE;
+        _NEXT_POS
 
-        ctx->pos++;
-
-        node_t* next_mul_div_expression = get_in_parent_expression(ctx);
-
-        connect_nodes(operation, cur_mul_div_expression, next_mul_div_expression);
+        VERIFY(get_in_parent_expression(ctx, &operation->right),
+               return LANG_GET_IN_PARENT_EXPRESSION_ERROR);
 
         cur_mul_div_expression = operation;
     }
 
-    return cur_mul_div_expression;
+    *ret_node = cur_mul_div_expression;
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_in_parent_expression(lang_ctx_t* ctx)
+lang_status_t get_in_parent_expression(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    if (ctx->pos < ctx->n_nodes                        &&
-        _CURRENT_NODE->value_type          == OPERATOR &&
-        _CURRENT_NODE->value.operator_code == OPEN_BRACKET)
+    if (_IS_OPERATOR(OPEN_BRACKET))
     {
-        ctx->pos++;
+        _NEXT_POS
 
-        node_t* expression = get_expression(ctx);
+        VERIFY(get_expression(ctx, ret_node),
+               return LANG_GET_EXPRESSION_ERROR);
 
         _CHECK_OPERATOR(CLOSE_BRACKET);
+        _NEXT_POS;
 
-        ctx->pos++;
+        return LANG_SUCCESS;
+    }
 
-        return expression;
-    }
-    else
-    {
-        return get_single_expression(ctx);
-    }
+    //---------------------------------------------------------------//
+
+    VERIFY(get_single_expression(ctx, ret_node),
+           return LANG_GET_SINGLE_EXPRESSION_ERROR);
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-node_t* get_single_expression(lang_ctx_t* ctx)
+lang_status_t get_single_expression(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
-    VERIFY(ctx->pos >= ctx->n_nodes, return nullptr);
+    ASSERT(ret_node);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    node_t* single_expression = nullptr;
-
-    //-------------------------------------------------------------------//
-
-    switch(_CURRENT_NODE->value_type)
+    if (_IS_TYPE(NUMBER))
     {
-        case OPERATOR:
-        {
-            if (ctx->pos < ctx->n_nodes                   &&
-                _CURRENT_NODE->value.operator_code == COS ||
-                _CURRENT_NODE->value.operator_code == SIN)
-            {
-                single_expression = get_func(ctx);
+        *ret_node = _CURRENT_NODE;
+        _NEXT_POS
 
-                break;
-            }
-
-            else if (ctx->pos < ctx->n_nodes &&
-                     _CURRENT_NODE->value.operator_code == CALL)
-            {
-                single_expression = get_call(ctx);
-            }
-
-            _EXPECTED("calculation func or call");
-        }
-
-        case IDENTIFIER:
-        {
-            if (_ID(_CURRENT_NODE).type != VAR)
-            {
-                _EXPECTED("VAR");
-            }
-
-            if (!_ID(_CURRENT_NODE).is_inited)
-            {
-                _NOT_INIT_ERROR;
-            }
-
-            single_expression = _CURRENT_NODE;
-
-            ctx->pos++;
-
-            break;
-        }
-
-        case NUMBER:
-        {
-            single_expression = _CURRENT_NODE;
-
-            ctx->pos++;
-
-            break;
-        }
-
-        default:
-        {
-            fprintf(stderr, "GOUDA\n");
-
-            return nullptr;
-        }
+        return LANG_SUCCESS;
     }
 
-    return single_expression;
-}
+    //---------------------------------------------------------------//
 
-//===================================================================//
+    if(_IS_TYPE(IDENTIFIER))
+    {
+        if (!_IS_ID_TYPE(VAR))
+        {
+            _EXPECTED("VAR");
+        }
 
-void connect_nodes (node_t* parent, node_t* left, node_t* right)
-{
-    ASSERT(parent);
+        if (!_CURRENT_ID.is_inited)
+        {
+            _NOT_INIT_ERROR;
+        }
 
-    //-------------------------------------------------------------------//
+        *ret_node = _CURRENT_NODE;
+        _NEXT_POS
 
-    if (left)  parent->left  = left;
-    if (right) parent->right = right;
+        return LANG_SUCCESS;
+    }
+
+    //---------------------------------------------------------------//
+
+    if (_IS_OPERATOR(SIN) ||
+        _IS_OPERATOR(COS))
+    {
+        VERIFY(get_func(ctx, ret_node),
+               return LANG_GET_FUNC_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(CALL))
+    {
+        VERIFY(get_call(ctx, ret_node),
+               return LANG_GET_CALL_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    if (_IS_OPERATOR(RET))
+    {
+        VERIFY(get_return(ctx, ret_node),
+               return LANG_GET_RETURN_ERROR);
+        return LANG_SUCCESS;
+    }
+
+    //---------------------------------------------------------------//
+
+    printf("%d\n", _CURRENT_NODE->value.operator_code);
+
+    _SYNTAX_ERROR("invalid operation");
 }
 
 //===================================================================//
@@ -1005,21 +852,7 @@ const char* type_name(value_type_t type)
 
 //———————————————————————————————————————————————————————————————————//
 
-#undef _RED
-#undef _GREEN
-#undef _YELLOW
-#undef _BLUE
-#undef _PURPLE
-#undef _TURQUOISE
-#undef _ID
-#undef _CURRENT_NODE
-#undef _CURRENT_ID
-#undef _CURRENT_OP
-#undef _SYNTAX_ERROR
-#undef _NOT_INIT_ERROR
-#undef _EXPECTED
-#undef _CHECK_TYPE
-#undef _CHECK_OPERATOR
-#undef _CHECK_REDECLARATION
+#define _DSL_UNDEF_
+#include "dsl.h"
 
 //———————————————————————————————————————————————————————————————————//

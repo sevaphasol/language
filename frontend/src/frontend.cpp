@@ -2,7 +2,6 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "frontend.h"
 #include "custom_assert.h"
 #include "graph_dump.h"
 #include "node_allocator.h"
@@ -10,15 +9,18 @@
 
 //———————————————————————————————————————————————————————————————————//
 
-static lang_status_t frontend_ctx_ctor (lang_ctx_t* ctx,
-                                        int             argc,
-                                        const char*     argv[]);
+extern lang_status_t tokenize        (lang_ctx_t* ctx);
+extern lang_status_t syntax_analysis (lang_ctx_t* ctx);
+
+//-------------------------------------------------------------------//
 
 static lang_status_t tree_output       (lang_ctx_t* ctx,
-                                        node_t*         node,
-                                        size_t          level);
+                                        node_t*     node);
 
 static lang_status_t name_table_output (lang_ctx_t* ctx);
+
+static lang_status_t print_node_value  (FILE*       fp,
+                                        node_t*     node);
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -26,82 +28,73 @@ int main(int argc, const char* argv[])
 {
     lang_ctx_t ctx = {};
 
-    //-------------------------------------------------------------------//
-
     node_allocator_t node_allocator = {};
     ctx.node_allocator = &node_allocator;
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     VERIFY(lang_ctx_ctor(&ctx,
                          argc,
                          argv,
-                         DefaultInput,
-                         DefaultOutput),
+                         FrontendDefaultInput,
+                         FrontendDefaultOutput),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     VERIFY(tokenize(&ctx),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     VERIFY(syntax_analysis(&ctx),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     VERIFY(name_table_output(&ctx),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    VERIFY(tree_output(&ctx, ctx.nodes[0], 0),
+    VERIFY(tree_output(&ctx, ctx.nodes[0]),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    VERIFY(graph_dump(&ctx, TREE),
+    VERIFY(graph_dump(&ctx, ctx.nodes[0], TREE),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     VERIFY(lang_ctx_dtor(&ctx),
            return EXIT_FAILURE);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     return EXIT_SUCCESS;
 }
 
 //===================================================================//
 
-lang_status_t name_table_output (lang_ctx_t* ctx)
+lang_status_t name_table_output(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
-    fprintf(ctx->output_file,
-            "Number of tables = %d\n\n", 1);
-
-    fprintf(ctx->output_file,
-            "Number of indexes = %ld\n"
-            "%-10s %-10s %-10s %-10s\n",
-            ctx->name_table.n_names,
-            "index", "name", "type", "n params");
+    fprintf(ctx->output_file, "%ld\n", ctx->name_table.n_names);
 
     for (int i = 0; i < ctx->name_table.n_names; i++)
     {
         fprintf(ctx->output_file,
-               "%-10d %-10s %-10d %-10d\n",
+               "{ %-3d %-10s %-1d %-2d }\n",
                i,
                ctx->name_table.table[i].name,
                ctx->name_table.table[i].type,
@@ -110,81 +103,71 @@ lang_status_t name_table_output (lang_ctx_t* ctx)
 
     fputc('\n', ctx->output_file);
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     return LANG_SUCCESS;
 }
 
 //===================================================================//
 
-lang_status_t tree_output(lang_ctx_t* ctx, node_t* node, size_t level)
+lang_status_t tree_output(lang_ctx_t* ctx, node_t* node)
 {
     ASSERT(ctx);
     ASSERT(node);
 
-    //-------------------------------------------------------------------//
-
-    // for (int i = 0; i < level; i++)
-    // {
-    //     fputc('\t', ctx->output_file);
-    // }
+    //---------------------------------------------------------------//
 
     fprintf(ctx->output_file, "{%d ", node->value_type);
+
+    VERIFY(print_node_value(ctx->output_file, node),
+           return LANG_TREE_OUTPUT_ERROR);
+
+    node->left  ? tree_output(ctx, node->left)  : fputs(" _ ", ctx->output_file);
+    node->right ? tree_output(ctx, node->right) : fputs(" _ ", ctx->output_file);
+
+    fputs("} ",  ctx->output_file);
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t print_node_value(FILE* fp, node_t* node)
+{
+    ASSERT(fp);
+    ASSERT(node);
+
+    //---------------------------------------------------------------//
 
     switch (node->value_type)
     {
         case OPERATOR:
         {
-            fprintf(ctx->output_file, "%d ", node->value.operator_code);
+            fprintf(fp, "%d ", node->value.operator_code);
 
             break;
         }
         case IDENTIFIER:
         {
-            fprintf(ctx->output_file, "%ld ", node->value.id_index);
+            fprintf(fp, "%ld ", node->value.id_index);
 
             break;
         }
         case NUMBER:
         {
-            fprintf(ctx->output_file, "%d ", node->value.number);
+            fprintf(fp, "%d ", node->value.number);
+
             break;
         }
         default:
         {
-            ASSERT(true);
+            return LANG_PRINT_NODE_VALUE_ERROR;
+
             break;
         }
     }
-
-    if (node->left)
-    {
-        tree_output(ctx, node->left,  level + 1);
-    }
-    else
-    {
-        fputs(" _ ", ctx->output_file);
-    }
-    if (node->right)
-    {
-        tree_output(ctx, node->right, level + 1);
-    }
-    else
-    {
-        fputs(" _ ", ctx->output_file);
-    }
-//
-//     if (node->left || node->right)
-//     {
-//         for (int i = 0; i < level; i++)
-//         {
-//             fputc('\t', ctx->output_file);
-//         }
-//     }
-
-    fputs("} ",  ctx->output_file);
-
-    //-------------------------------------------------------------------//
 
     return LANG_SUCCESS;
 }

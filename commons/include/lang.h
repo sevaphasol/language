@@ -16,7 +16,7 @@ const int MaxStrLength = 100;
 const char* const FrontendDefaultInput  = "exmpl_src.txt";
 const char* const FrontendDefaultOutput = "exmpl_res.txt";
 
-const char* const BackendDefaultInput  = "../../frontend/exmpl_res.txt";
+const char* const BackendDefaultInput  = "exmpl_res.txt";
 const char* const BackendDefaultOutput = "exmpl_res.asm";
 
 //———————————————————————————————————————————————————————————————————//
@@ -38,6 +38,154 @@ enum lang_status_t
     LANG_OPEN_FILES_ERROR = 12,
     LANG_GET_TOKEN_ERROR = 13,
     LANG_NODE_ALLOCATOR_DTOR_ERROR = 14,
+    LANG_PRINT_NODE_VALUE_ERROR = 15,
+    LANG_TREE_OUTPUT_ERROR = 16,
+    LANG_PUT_NODE_VALUE_ERROR = 17,
+    LANG_UNKNOWN_TYPE_ERROR = 18,
+    LANG_READ_LEFT_NODE_ERROR = 19,
+    LANG_READ_RIGHT_NODE_ERROR = 20,
+    LANG_INCORRECT_INPUT_SYNTAX_ERROR = 21,
+    LANG_ASM_NODE_ERROR = 22,
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+enum value_type_t
+{
+    OPERATOR   = 1,
+    NUMBER     = 2,
+    IDENTIFIER = 3,
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+enum operator_code_t
+{
+    UNDEFINED     = 0,
+    ADD           = 1,
+    SUB           = 2,
+    MUL           = 3,
+    DIV           = 4,
+    ASSIGNMENT    = 5,
+    OPEN_BRACKET  = 6,
+    CLOSE_BRACKET = 7,
+    BODY_START    = 8,
+    BODY_END      = 9,
+    STATEMENT     = 10,
+    PARAM_LINKER  = 11,
+    IF            = 12,
+    WHILE         = 13,
+    NEW_VAR       = 14,
+    NEW_FUNC      = 15,
+    RET           = 16,
+    COS           = 17,
+    SIN           = 18,
+    OUT           = 19,
+    IN            = 20,
+    CALL          = 21,
+    HLT           = 22,
+};
+
+struct lang_ctx_t;
+struct node_t;
+
+struct operator_t
+{
+    operator_code_t code;
+    const char*     name;
+    size_t          len;
+    int             n_children;
+    lang_status_t   (*asm_func) (lang_ctx_t* ctx, node_t* cur_node);
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+lang_status_t asm_add(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_sub(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_mul(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_div(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_assignment(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_statement(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_param_linker(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_if(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_while(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_new_var(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_new_func(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_ret(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_cos(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_sin(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_out(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_in(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_call(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_hlt(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_identifier(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_number(lang_ctx_t* ctx, node_t* cur_node);
+lang_status_t asm_node(lang_ctx_t* ctx, node_t* cur_node);
+
+//———————————————————————————————————————————————————————————————————//
+
+#define STR_AND_LEN(str) str, sizeof(str) / sizeof(char)
+
+const operator_t OperatorsTable[] =
+{ //  .code       .name and len           .n_childs
+    {UNDEFINED    , nullptr, 0              , 0, nullptr},
+    {ADD          , STR_AND_LEN("+")        , 2, &asm_add},
+    {SUB          , STR_AND_LEN("-")        , 2, &asm_sub},
+    {MUL          , STR_AND_LEN("*")        , 2, &asm_mul},
+    {DIV          , STR_AND_LEN("/")        , 2, &asm_div},
+    {ASSIGNMENT   , STR_AND_LEN("=")        , 2, &asm_assignment},
+    {OPEN_BRACKET , STR_AND_LEN("(")        , 1, nullptr},
+    {CLOSE_BRACKET, STR_AND_LEN(")")        , 1, nullptr},
+    {BODY_START   , STR_AND_LEN("{")        , 1, nullptr},
+    {BODY_END     , STR_AND_LEN("}")        , 1, nullptr},
+    {STATEMENT    , STR_AND_LEN("sosal?")   , 2, &asm_statement},
+    {PARAM_LINKER , STR_AND_LEN("krasivaya"), 2, &asm_param_linker},
+    {IF           , STR_AND_LEN("if")       , 2, &asm_if},
+    {WHILE        , STR_AND_LEN("while")    , 2, &asm_while},
+    {NEW_VAR      , STR_AND_LEN("krosovka") , 2, &asm_new_var},
+    {NEW_FUNC     , STR_AND_LEN("korobka")  , 2, &asm_new_func},
+    {RET          , STR_AND_LEN("buyTNF")   , 0, &asm_ret},
+    {COS          , STR_AND_LEN("cosipinus"), 1, &asm_cos},
+    {SIN          , STR_AND_LEN("sipinus")  , 1, &asm_sin},
+    {OUT          , STR_AND_LEN("print")    , 1, &asm_out},
+    {IN           , STR_AND_LEN("scan")     , 1, &asm_in},
+    {CALL         , STR_AND_LEN("please")   , 0, &asm_call},
+    {HLT          , STR_AND_LEN("sosal!")   , 0, &asm_hlt},
+};
+
+const int nOperators = sizeof(OperatorsTable) / sizeof(operator_t);
+
+#undef STR_AND_LEN
+
+//———————————————————————————————————————————————————————————————————//
+
+enum identifier_type_t
+{
+    UNKNOWN = 0,
+    VAR     = 1,
+    FUNC    = 2,
+};
+
+struct identifier_t
+{
+    identifier_type_t type;
+    const char*       name;
+    size_t            len;
+    int               n_params;
+    bool              is_inited;
+};
+
+//———————————————————————————————————————————————————————————————————//
+
+typedef int number_t;
+
+//———————————————————————————————————————————————————————————————————//
+
+union value_t
+{
+    operator_code_t   operator_code;
+    size_t            id_index;
+    number_t          number;
 };
 
 //———————————————————————————————————————————————————————————————————//
@@ -81,6 +229,7 @@ struct lang_ctx_t
 
     node_t*           tree;
     size_t            pos;
+    size_t            n_globals;
 };
 
 //———————————————————————————————————————————————————————————————————//
