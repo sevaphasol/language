@@ -11,7 +11,8 @@
 
 //-------------------------------------------------------------------//
 
-#define _ID(node)     ctx->name_table.table[node->value.id_index]
+#define _ID(node)     ctx->name_table.table[_ID_IND(node)]
+#define _ID_IND(node) node->value.id_index
 #define _CURRENT_NODE ctx->nodes[ctx->pos]
 #define _CURRENT_ID   _ID(_CURRENT_NODE)
 #define _CURRENT_OP   OperatorsTable[_CURRENT_NODE->value.operator_code]
@@ -93,6 +94,14 @@
                       OperatorsTable[__code__].name,                  \
                       _CURRENT_OP.name);                              \
     }                                                                 \
+
+//===================================================================//
+
+#define _REDECLARATION_MESSAGE(__node__)                              \
+                                                                      \
+    _SYNTAX_ERROR("Redeclaration of "                                 \
+                    _TURQUOISE("%s") ".",                             \
+                    _ID(__node__).name)                               \
 
 //===================================================================//
 
@@ -188,6 +197,7 @@
 #undef _INVALID_PARAMS_MESSAGE
 #undef _CHECK_OPERATOR
 #undef _CHECK_REDECLARATION
+#undef _REDECLARATION_MESSAGE
 #undef _IS_OPERATOR
 #undef _IS_TYPE
 

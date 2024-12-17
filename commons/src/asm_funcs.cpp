@@ -433,6 +433,7 @@ lang_status_t asm_call(lang_ctx_t* ctx, node_t* cur_node)
     fprintf(ctx->output_file, "call ");
     asm_node(ctx, cur_node->left);
     fprintf(ctx->output_file, ":\n");
+    fprintf(ctx->output_file, "pop BP\n");
 
     //-------------------------------------------------------------------//
 

@@ -15,7 +15,7 @@
 static lang_status_t read_tree_from_file(lang_ctx_t* ctx, node_t** node);
 static lang_status_t read_tree(lang_ctx_t* ctx, node_t** node);
 static lang_status_t put_node_value(int type, int val, value_t* node_value);
-static lang_status_t read_name_tables(lang_ctx_t* ctx);
+static lang_status_t read_name_table(lang_ctx_t* ctx);
 static lang_status_t asm_code(lang_ctx_t* ctx);
 static lang_status_t asm_globals(lang_ctx_t* ctx);
 
@@ -41,7 +41,7 @@ int main(int argc, const char* argv[])
 
     //-------------------------------------------------------------------//
 
-    VERIFY(read_name_tables(&ctx),
+    VERIFY(read_name_table(&ctx),
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
@@ -119,7 +119,7 @@ lang_status_t asm_globals(lang_ctx_t* ctx)
 
 //===================================================================//
 
-lang_status_t read_name_tables(lang_ctx_t* ctx)
+lang_status_t read_name_table(lang_ctx_t* ctx)
 {
     ASSERT(ctx);
 

@@ -8,7 +8,6 @@
 #include <stdarg.h>
 
 #include "lang.h"
-#include "../../frontend/include/frontend.h"
 
 //———————————————————————————————————————————————————————————————————//
 

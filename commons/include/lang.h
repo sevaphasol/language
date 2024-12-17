@@ -46,12 +46,44 @@ enum lang_status_t
     LANG_READ_RIGHT_NODE_ERROR = 20,
     LANG_INCORRECT_INPUT_SYNTAX_ERROR = 21,
     LANG_ASM_NODE_ERROR = 22,
+    LANG_UNKNOWN_OPERATOR_ERROR = 23,
+    LANG_GET_STR_NODE_ERROR = 24,
+    LANG_GET_DECLARATION_ERROR = 25,
+    LANG_GET_GLOBAL_STATEMENT_ERROR = 26,
+    LANG_GET_FUNC_PARAMS_ERROR = 27,
+    LANG_GET_BODY_ERROR = 28,
+    LANG_GET_EXPRESSION_ERROR = 29,
+    LANG_GET_STATEMENT_ERROR = 30,
+    LANG_GET_STANDART_FUNC_ERROR = 31,
+    LANG_GET_ASSIGNMENT_ERROR = 32,
+    LANG_GET_IF_ERROR = 33,
+    LANG_GET_RETURN_ERROR = 34,
+    LANG_GET_FUNC_ERROR = 35,
+    LANG_GET_SCAN_ERROR = 36,
+    LANG_GET_VAR_DECLARATION_ERROR = 37,
+    LANG_GET_CALL_ERROR = 38,
+    LANG_GET_MUL_DIV_EXPRESSION_ERROR = 39,
+    LANG_GET_MUL_DIV_EXPRESSION = 40,
+    LANG_GET_SINGLE_EXPRESSION_ERROR = 41,
+    LANG_NODES_OVERFLOW_ERROR = 42,
+    LANG_GET_IN_PARENT_EXPRESSION_ERROR = 43,
+    LANG_GET_FUNC_USE_PARAMS_ERROR = 44,
+    LANG_GET_FUNC_DECLARATION_ERROR = 45,
+    LANG_GET_VAR_DECLARATION = 46,
+    LANG_ID_STACK_OVERFLOW_ERROR = 47,
+    LANG_ID_STACK_UNDERFLOW_ERROR = 48,
+    LANG_POP_LOCALES_ERROR = 49,
+    LANG_REDECLARATION_ERROR = 50,
+    LANG_NOT_INIT_ERROR = 51,
+    LANG_PUSH_NEW_ID_COUNTER_ERROR = 52,
+    LANG_ID_COUNTER_STACK_OVERFLOW_ERROR = 53,
 };
 
 //———————————————————————————————————————————————————————————————————//
 
 enum value_type_t
 {
+    POISON     = 0,
     OPERATOR   = 1,
     NUMBER     = 2,
     IDENTIFIER = 3,
@@ -169,7 +201,7 @@ enum identifier_type_t
 struct identifier_t
 {
     identifier_type_t type;
-    const char*       name;
+    char*             name;
     size_t            len;
     int               n_params;
     bool              is_inited;
@@ -201,6 +233,15 @@ struct node_t
 
 //———————————————————————————————————————————————————————————————————//
 
+struct stack_t
+{
+    size_t  size;
+    size_t  top;
+    size_t* data;
+};
+
+//———————————————————————————————————————————————————————————————————//
+
 struct name_table_t
 {
     size_t        n_names;
@@ -224,6 +265,8 @@ struct lang_ctx_t
     node_t**          nodes;
     size_t            n_nodes;
     name_table_t      name_table;
+    stack_t           id_stack;
+    stack_t           id_counter_stack;
     size_t            cur_line;
     char*             code;
 

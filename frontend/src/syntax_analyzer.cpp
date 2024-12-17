@@ -7,6 +7,8 @@
 #define _DSL_DEFINE_
 #include "dsl.h"
 
+#define _STACK_DUMP
+
 //———————————————————————————————————————————————————————————————————//
 
 lang_status_t syntax_analysis (lang_ctx_t* ctx);
@@ -16,12 +18,10 @@ lang_status_t syntax_analysis (lang_ctx_t* ctx);
 static lang_status_t get_global_statement     (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_declaration          (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_func_declaration     (lang_ctx_t* ctx, node_t** ret_node);
-static lang_status_t get_func_params          (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
-static lang_status_t get_func_use_params      (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
 static lang_status_t get_body                 (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_var_declaration      (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_statement            (lang_ctx_t* ctx, node_t** ret_node);
-static lang_status_t get_standart_func        (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_standart_operator    (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_if                   (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_return               (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_func                 (lang_ctx_t* ctx, node_t** ret_node);
@@ -32,10 +32,18 @@ static lang_status_t get_expression           (lang_ctx_t* ctx, node_t** ret_nod
 static lang_status_t get_mul_div_expression   (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_in_parent_expression (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_single_expression    (lang_ctx_t* ctx, node_t** ret_node);
-static lang_status_t get_ret                  (lang_ctx_t* ctx, node_t** ret_node);
+static lang_status_t get_func_params          (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
+static lang_status_t get_func_use_params      (lang_ctx_t* ctx, node_t** ret_node, int* n_params);
 
-static void          connect_nodes            (node_t* parent, node_t* left, node_t* right);
-static const char*   type_name                (value_type_t    type);
+//-------------------------------------------------------------------//
+
+static const char*   type_name           (value_type_t type);
+static lang_status_t stack_push          (lang_ctx_t* ctx, size_t  val);
+static lang_status_t push_new_id_counter (lang_ctx_t* ctx);
+static lang_status_t check_redeclaration (lang_ctx_t* ctx, size_t ind);
+static lang_status_t check_if_inited     (lang_ctx_t* ctx, size_t ind);
+static lang_status_t pop_locales         (lang_ctx_t* ctx);
+static lang_status_t stack_dump          (lang_ctx_t* ctx);
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -46,11 +54,13 @@ lang_status_t syntax_analysis(lang_ctx_t* ctx)
 
     //---------------------------------------------------------------//
 
+    VERIFY(push_new_id_counter(ctx),
+           return LANG_PUSH_NEW_ID_COUNTER_ERROR);
+
+    //---------------------------------------------------------------//
+
     VERIFY(get_global_statement(ctx, &ctx->nodes[0]),
            return LANG_GET_GLOBAL_STATEMENT_ERROR);
-
-    VERIFY(!ctx->nodes[0],
-           return LANG_SYNTAX_ERROR);
 
     //---------------------------------------------------------------//
 
@@ -97,7 +107,7 @@ lang_status_t get_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
     //---------------------------------------------------------------//
 
-    *ret_node = _CURRENT_NODE;
+    *ret_node = _CURRENT_NODE; //TODO ????????
 
     //---------------------------------------------------------------//
 
@@ -105,6 +115,12 @@ lang_status_t get_declaration(lang_ctx_t* ctx, node_t** ret_node)
     {
         VERIFY(get_func_declaration(ctx, ret_node),
                return LANG_GET_FUNC_DECLARATION_ERROR);
+
+        #ifdef _STACK_DUMP
+            printf(_TURQUOISE("end of func declaration\n"));
+            stack_dump(ctx);
+        #endif
+
         return LANG_SUCCESS;
     }
 
@@ -115,7 +131,7 @@ lang_status_t get_declaration(lang_ctx_t* ctx, node_t** ret_node)
         return LANG_SUCCESS;
     }
 
-    //-------------------------------------------------------------------//
+    //---------------------------------------------------------------//
 
     _EXPECTED("declaration");
 }
@@ -137,8 +153,21 @@ lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
     (*ret_node)->left = _CURRENT_NODE;
     _CHECK_TYPE(IDENTIFIER);
-    _CHECK_REDECLARATION((*ret_node)->left);
+
+    VERIFY(check_redeclaration(ctx, _ID_IND((*ret_node)->left)),
+           _REDECLARATION_MESSAGE((*ret_node)->left));
+
+    stack_push(ctx, _ID_IND((*ret_node)->left));
+
+    _ID((*ret_node)->left).type = FUNC;
     _NEXT_POS
+
+    //---------------------------------------------------------------//
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("pushing new func\n"));
+        stack_dump(ctx);
+    #endif
 
     //---------------------------------------------------------------//
 
@@ -147,10 +176,17 @@ lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
     //---------------------------------------------------------------//
 
+    VERIFY(push_new_id_counter(ctx),
+           return LANG_PUSH_NEW_ID_COUNTER_ERROR);
+
+    //---------------------------------------------------------------//
+
     int n_params = 0;
 
     VERIFY(get_func_params(ctx, &(*ret_node)->left->left, &n_params),
            return LANG_GET_FUNC_PARAMS_ERROR);
+
+    _ID((*ret_node)->left).n_params = n_params;
 
     //---------------------------------------------------------------//
 
@@ -164,9 +200,13 @@ lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
     //---------------------------------------------------------------//
 
-    _ID((*ret_node)->left).is_inited  = true;
-    _ID((*ret_node)->left).type       = FUNC;
-    _ID((*ret_node)->left).n_params   = n_params;
+    VERIFY(pop_locales(ctx),
+           return LANG_POP_LOCALES_ERROR);
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("end of function, poping locales(func params)\n"));
+        stack_dump(ctx);
+    #endif
 
     //---------------------------------------------------------------//
 
@@ -175,12 +215,13 @@ lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
 //===================================================================//
 
-lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
+lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node,
+                              int* n_params)
 {
     ASSERT(ctx);
     ASSERT(ret_node);
 
-    //---------------------------------------------------------------//
+    //--------------------------------------------------------------//
 
     if (!(_IS_OPERATOR(PARAM_LINKER))) { return LANG_SUCCESS; }
 
@@ -189,7 +230,6 @@ lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
     //--------------------------------------------------------------//
 
     *ret_node = _CURRENT_NODE;
-
     _NEXT_POS
 
     //--------------------------------------------------------------//
@@ -198,7 +238,6 @@ lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
     _CHECK_OPERATOR(NEW_VAR);
 
     (*ret_node)->left = _CURRENT_NODE;
-
     _NEXT_POS
 
     //--------------------------------------------------------------//
@@ -206,15 +245,23 @@ lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
     (*ret_node)->left->left = _CURRENT_NODE;
 
     _CHECK_TYPE(IDENTIFIER);
-    _CHECK_REDECLARATION(_CURRENT_NODE);
 
-    _CURRENT_ID.is_inited = true;
-    _CURRENT_ID.type      = VAR;
+    VERIFY(check_redeclaration(ctx, _ID_IND(_CURRENT_NODE)),
+           _REDECLARATION_MESSAGE(_CURRENT_NODE));
+
+    stack_push(ctx, _ID_IND(_CURRENT_NODE));
+    _CURRENT_ID.type = VAR;
+
+    //--------------------------------------------------------------//
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("pushing func param\n"));
+        stack_dump(ctx);
+    #endif
+
+    //--------------------------------------------------------------//
 
     _NEXT_POS
-
-    //---------------------------------------------------------------//
-
     VERIFY(get_func_params(ctx, &(*ret_node)->right, n_params),
            return LANG_GET_FUNC_PARAMS_ERROR);
 
@@ -240,7 +287,8 @@ lang_status_t get_var_declaration(lang_ctx_t* ctx, node_t** ret_node)
 
     node_t* var_name = _CURRENT_NODE;
     _CHECK_TYPE(IDENTIFIER);
-    _CHECK_REDECLARATION(_CURRENT_NODE);
+    VERIFY(check_redeclaration(ctx, _ID_IND(_CURRENT_NODE)),
+           _REDECLARATION_MESSAGE(_CURRENT_NODE));
     _NEXT_POS
 
     //---------------------------------------------------------------//
@@ -260,8 +308,17 @@ lang_status_t get_var_declaration(lang_ctx_t* ctx, node_t** ret_node)
     assignment->left      = var_declaration;
     *ret_node = assignment;
 
-    _ID(var_name).is_inited = true;
-    _ID(var_name).type      = VAR;
+    //---------------------------------------------------------------//
+
+    stack_push(ctx, _ID_IND(var_name));
+    _ID(var_name).type = VAR;
+
+    //---------------------------------------------------------------//
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("pushing new var\n"));
+        stack_dump(ctx);
+    #endif
 
     //---------------------------------------------------------------//
 
@@ -277,6 +334,16 @@ lang_status_t get_body(lang_ctx_t* ctx, node_t** ret_node)
 
     //---------------------------------------------------------------//
 
+    VERIFY(push_new_id_counter(ctx),
+           return LANG_PUSH_NEW_ID_COUNTER_ERROR);
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("body start (pushing new id counter)\n"));
+        stack_dump(ctx);
+    #endif
+
+    //---------------------------------------------------------------//
+
     _CHECK_OPERATOR(BODY_START);
     _NEXT_POS
 
@@ -288,7 +355,6 @@ lang_status_t get_body(lang_ctx_t* ctx, node_t** ret_node)
     node_t* cur_statement  = _CURRENT_NODE;
 
     _NEXT_POS
-
     VERIFY(get_statement(ctx, &cur_statement->left),
            return LANG_GET_STATEMENT_ERROR);
 
@@ -300,7 +366,6 @@ lang_status_t get_body(lang_ctx_t* ctx, node_t** ret_node)
         cur_statement        = _CURRENT_NODE;
 
         _NEXT_POS
-
         VERIFY(get_statement(ctx, &cur_statement->left),
                return LANG_GET_STATEMENT_ERROR);
     }
@@ -309,6 +374,16 @@ lang_status_t get_body(lang_ctx_t* ctx, node_t** ret_node)
 
     _CHECK_OPERATOR(BODY_END);
     _NEXT_POS
+
+    //---------------------------------------------------------------//
+
+    VERIFY(pop_locales(ctx),
+           return LANG_POP_LOCALES_ERROR);
+
+    #ifdef _STACK_DUMP
+        printf(_TURQUOISE("body end, poping locales\n"));
+        stack_dump(ctx);
+    #endif
 
     //---------------------------------------------------------------//
 
@@ -326,7 +401,7 @@ lang_status_t get_statement(lang_ctx_t* ctx, node_t** ret_node)
 
     if (_IS_TYPE(OPERATOR))
     {
-        VERIFY(get_standart_func(ctx, ret_node),
+        VERIFY(get_standart_operator(ctx, ret_node),
                return LANG_GET_STANDART_FUNC_ERROR);
         return LANG_SUCCESS;
     }
@@ -347,7 +422,7 @@ lang_status_t get_statement(lang_ctx_t* ctx, node_t** ret_node)
 
 //===================================================================//
 
-lang_status_t get_standart_func(lang_ctx_t* ctx, node_t** ret_node)
+lang_status_t get_standart_operator(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
     ASSERT(ret_node);
@@ -501,7 +576,8 @@ lang_status_t get_func(lang_ctx_t* ctx, node_t** ret_node)
 
 // ===================================================================//
 
-lang_status_t get_func_use_params(lang_ctx_t* ctx, node_t** ret_node, int* n_params)
+lang_status_t get_func_use_params(lang_ctx_t* ctx, node_t** ret_node,
+                                  int* n_params)
 {
     ASSERT(ctx);
     ASSERT(ret_node);
@@ -610,23 +686,6 @@ lang_status_t get_assignment(lang_ctx_t* ctx, node_t** ret_node)
 
 //===================================================================//
 
-lang_status_t get_ret(lang_ctx_t* ctx, node_t** ret_node)
-{
-    ASSERT(ctx);
-
-    //---------------------------------------------------------------//
-
-    _CHECK_OPERATOR(RET);
-    *ret_node = _CURRENT_NODE;
-    _NEXT_POS
-
-    //---------------------------------------------------------------//
-
-    return LANG_SUCCESS;
-}
-
-//===================================================================//
-
 lang_status_t get_call(lang_ctx_t* ctx, node_t** ret_node)
 {
     ASSERT(ctx);
@@ -640,6 +699,9 @@ lang_status_t get_call(lang_ctx_t* ctx, node_t** ret_node)
     _CHECK_TYPE(IDENTIFIER);
 
     if (_CURRENT_ID.type != FUNC) { _EXPECTED("func"); }
+
+    VERIFY(check_if_inited(ctx, _ID_IND(_CURRENT_NODE)),
+           _NOT_INIT_ERROR);
 
     (*ret_node)->left = _CURRENT_NODE;
     _NEXT_POS
@@ -705,7 +767,8 @@ lang_status_t get_expression(lang_ctx_t* ctx, node_t** ret_node)
 
 //===================================================================//
 
-lang_status_t get_mul_div_expression(lang_ctx_t* ctx, node_t** ret_node)
+lang_status_t get_mul_div_expression(lang_ctx_t* ctx,
+                                     node_t** ret_node)
 {
     ASSERT(ctx);
     ASSERT(ret_node);
@@ -721,7 +784,7 @@ lang_status_t get_mul_div_expression(lang_ctx_t* ctx, node_t** ret_node)
            _IS_OPERATOR(DIV))
     {
         node_t* operation = _CURRENT_NODE;
-        operation->left   = _CURRENT_NODE;
+        operation->left   = cur_mul_div_expression;
         _NEXT_POS
 
         VERIFY(get_in_parent_expression(ctx, &operation->right),
@@ -739,7 +802,8 @@ lang_status_t get_mul_div_expression(lang_ctx_t* ctx, node_t** ret_node)
 
 //===================================================================//
 
-lang_status_t get_in_parent_expression(lang_ctx_t* ctx, node_t** ret_node)
+lang_status_t get_in_parent_expression(lang_ctx_t* ctx,
+                                       node_t** ret_node)
 {
     ASSERT(ctx);
     ASSERT(ret_node);
@@ -790,15 +854,10 @@ lang_status_t get_single_expression(lang_ctx_t* ctx, node_t** ret_node)
 
     if(_IS_TYPE(IDENTIFIER))
     {
-        if (!_IS_ID_TYPE(VAR))
-        {
-            _EXPECTED("VAR");
-        }
+        if (!_IS_ID_TYPE(VAR)) { _EXPECTED("VAR"); }
 
-        if (!_CURRENT_ID.is_inited)
-        {
-            _NOT_INIT_ERROR;
-        }
+        VERIFY(check_if_inited(ctx, _ID_IND(_CURRENT_NODE)),
+               _NOT_INIT_ERROR);
 
         *ret_node = _CURRENT_NODE;
         _NEXT_POS
@@ -832,8 +891,6 @@ lang_status_t get_single_expression(lang_ctx_t* ctx, node_t** ret_node)
 
     //---------------------------------------------------------------//
 
-    printf("%d\n", _CURRENT_NODE->value.operator_code);
-
     _SYNTAX_ERROR("invalid operation");
 }
 
@@ -848,6 +905,161 @@ const char* type_name(value_type_t type)
         case IDENTIFIER: return "IDENTIFIER";
         default:         return "GOUDA";
     }
+}
+
+//===================================================================//
+
+lang_status_t stack_push(lang_ctx_t* ctx, size_t val)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t* id_stack         = &ctx->id_stack;
+    stack_t* id_counter_stack = &ctx->id_counter_stack;
+
+    //---------------------------------------------------------------//
+
+    VERIFY(id_stack->top >= id_stack->size,
+           return LANG_ID_STACK_OVERFLOW_ERROR);
+
+    id_stack->data[id_stack->top++] = val;
+    id_counter_stack->data[id_counter_stack->top - 1]++;
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t push_new_id_counter(lang_ctx_t* ctx)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t* id_counter_stack = &ctx->id_counter_stack;
+
+    VERIFY(id_counter_stack->top >= id_counter_stack->size,
+           return LANG_ID_COUNTER_STACK_OVERFLOW_ERROR);
+
+    id_counter_stack->data[id_counter_stack->top++] = 0;
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t check_redeclaration(lang_ctx_t* ctx, size_t ind)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t id_stack = ctx->id_stack;
+
+    //---------------------------------------------------------------//
+
+    for (int i = 0; i < id_stack.top; i++)
+    {
+        if (id_stack.data[i] == ind)
+        {
+            return LANG_REDECLARATION_ERROR;
+        }
+    }
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t check_if_inited(lang_ctx_t* ctx, size_t ind)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t id_stack = ctx->id_stack;
+
+    //---------------------------------------------------------------//
+
+    for (int i = 0; i < id_stack.top; i++)
+    {
+        if (id_stack.data[i] == ind)
+        {
+            return LANG_SUCCESS;
+        }
+    }
+
+    //---------------------------------------------------------------//
+
+    return LANG_NOT_INIT_ERROR;
+}
+
+//===================================================================//
+
+lang_status_t pop_locales(lang_ctx_t* ctx)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t* id_stack         = &ctx->id_stack;
+    stack_t* id_counter_stack = &ctx->id_counter_stack;
+
+    //---------------------------------------------------------------//
+
+    id_stack->top -= id_counter_stack->data[--id_counter_stack->top];
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
+}
+
+//===================================================================//
+
+lang_status_t stack_dump(lang_ctx_t* ctx)
+{
+    ASSERT(ctx);
+
+    //---------------------------------------------------------------//
+
+    stack_t id_counter_stack = ctx->id_counter_stack;
+    stack_t id_stack         = ctx->id_stack;
+
+    printf(_GREEN("\nID_COUNTER_STACK: size = %ld"
+                  " top = %ld\n\n"),
+                  id_counter_stack.size,
+                  id_counter_stack.top);
+
+    for (size_t i = 0; i < id_counter_stack.top; i++)
+    {
+        printf(_GREEN("[%ld] = %ld\n"), i, id_counter_stack.data[i]);
+    }
+
+    //---------------------------------------------------------------//
+
+    printf(_GREEN("\n\nID_STACK: size = %ld "
+                  "top = %ld\n\n"),
+                  id_stack.size,
+                  id_stack.top);
+
+    for (size_t i = 0; i < id_stack.top; i++)
+    {
+        printf(_GREEN("[%ld] = %ld\n"), i, id_stack.data[i]);
+    }
+
+    puts(_RED("\n//---------------------------------"
+              "----------------------------------//\n"));
+
+    //---------------------------------------------------------------//
+
+    return LANG_SUCCESS;
 }
 
 //———————————————————————————————————————————————————————————————————//

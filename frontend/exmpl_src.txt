@@ -1,27 +1,20 @@
-sosal? krosovka her = 1
-sosal? krosovka penis = 1
-
-sosal? korobka huy(krasivaya krosovka v)
+sosal? korobka factorial(krasivaya krosovka n)
 {
-    sosal? print(krasivaya v + 1)
-
-    sosal? if (0)
+    sosal? if (n)
     {
-        sosal? print(krasivaya 1)
+        sosal? buyTNF n * (please factorial(krasivaya n - 1))
     }
 
-    sosal? buyTNF v
+    sosal? buyTNF 1
 }
 
-sosal? korobka main(krasivaya krosovka a krasivaya krosovka c)
+sosal? korobka main()
 {
-    sosal? krosovka d = 1
+    sosal? krosovka n = 0
 
-    sosal? scan(krasivaya a)
+    sosal? scan(krasivaya n)
 
-    sosal? please huy(krasivaya a)
-
-    sosal? print(krasivaya a)
+    sosal? print(krasivaya please factorial(krasivaya n))
 
     sosal? buyTNF
 }

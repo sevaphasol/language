@@ -11,7 +11,6 @@
 #include "graph_dump.h"
 #include "node_allocator.h"
 #include "custom_assert.h"
-#include "../../frontend/include/frontend.h"
 
 //———————————————————————————————————————————————————————————————————//
 
