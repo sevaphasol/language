@@ -11,6 +11,11 @@
 
 //———————————————————————————————————————————————————————————————————//
 
+#define _DSL_DEFINE_
+#include "dsl.h"
+
+//———————————————————————————————————————————————————————————————————//
+
 static lang_status_t read_tree_from_file(lang_ctx_t* ctx, node_t** node);
 static lang_status_t read_tree(lang_ctx_t* ctx, node_t** node);
 static lang_status_t put_node_value(int type, int val, value_t* node_value);
@@ -74,11 +79,10 @@ lang_status_t asm_code(lang_ctx_t* ctx)
     VERIFY(asm_globals(ctx),
         return LANG_ASM_NODE_ERROR);
 
-    fprintf(ctx->output_file, "push %ld\n"
-                              "pop BP\n"
-                              "call main:\n"
-                              "hlt\n\n",
-                              ctx->n_globals);
+    _PRINT("push %ld\n", ctx->n_globals);
+    _PRINT("pop BP\n");
+    _PRINT("call main:\n");
+    _PRINT("hlt\n");
 
     VERIFY(asm_node(ctx, ctx->tree),
            return LANG_ASM_NODE_ERROR);
@@ -273,3 +277,8 @@ lang_status_t put_node_value(int type, int val, value_t* node_value)
 }
 
 //===================================================================//
+
+#define _DSL_UNDEF_
+#include "dsl.h"
+
+//———————————————————————————————————————————————————————————————————//

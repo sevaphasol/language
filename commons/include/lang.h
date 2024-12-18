@@ -74,6 +74,7 @@ enum lang_status_t
     LANG_PUSH_NEW_ID_COUNTER_ERROR       = 52,
     LANG_ID_COUNTER_STACK_OVERFLOW_ERROR = 53,
     LANG_ADD_NEW_ID_ERROR                = 54,
+    LANG_ASM_NEW_VAR_ERROR               = 55,
 };
 
 //———————————————————————————————————————————————————————————————————//
@@ -281,7 +282,7 @@ struct lang_ctx_t
     size_t            pos;
 
     // for backend
-    size_t            level;
+    int               level;
     size_t            n_labels;
     size_t            n_globals;
     size_t            n_locals;

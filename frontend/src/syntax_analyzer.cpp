@@ -1,13 +1,13 @@
 #include <string.h>
-#include "custom_assert.h"
 #include "node_allocator.h"
+#include "custom_assert.h"
 
 //———————————————————————————————————————————————————————————————————//
 
 #define _DSL_DEFINE_
 #include "dsl.h"
 
-#define _STACK_DUMP
+// #define _STACK_DUMP
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -20,7 +20,7 @@ static lang_status_t get_declaration          (lang_ctx_t* ctx, node_t** ret_nod
 static lang_status_t get_func_declaration     (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_body                 (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_var_declaration      (lang_ctx_t* ctx, node_t** ret_node,
-                                                                bool     is_global);
+                                               bool        is_global);
 static lang_status_t get_statement            (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_standart_operator    (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_if                   (lang_ctx_t* ctx, node_t** ret_node);
@@ -34,9 +34,9 @@ static lang_status_t get_mul_div_expression   (lang_ctx_t* ctx, node_t** ret_nod
 static lang_status_t get_in_parent_expression (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_single_expression    (lang_ctx_t* ctx, node_t** ret_node);
 static lang_status_t get_func_params          (lang_ctx_t* ctx, node_t** ret_node,
-                                                                int*     n_params);
+                                               int*        n_params);
 static lang_status_t get_func_use_params      (lang_ctx_t* ctx, node_t** ret_node,
-                                                                int*     n_params);
+                                               int*        n_params);
 
 //-------------------------------------------------------------------//
 
@@ -46,13 +46,62 @@ static lang_status_t add_new_id          (lang_ctx_t*       ctx,
                                           bool              is_global);
 
 static const char*   type_name           (value_type_t type);
-static lang_status_t stack_push          (lang_ctx_t* ctx, size_t  val);
+static lang_status_t stack_push          (lang_ctx_t* ctx,
+                                          size_t      val);
 static lang_status_t push_new_id_counter (lang_ctx_t* ctx);
-static lang_status_t check_var           (lang_ctx_t* ctx, size_t ind, int mode);
+static lang_status_t check_var           (lang_ctx_t* ctx,
+                                          size_t*     ind,
+                                          int         mode);
 static lang_status_t pop_locales         (lang_ctx_t* ctx);
 static lang_status_t stack_dump          (lang_ctx_t* ctx);
 
 //———————————————————————————————————————————————————————————————————//
+
+lang_status_t check_var(lang_ctx_t* ctx, size_t* ind, int mode)
+{
+    ASSERT(ctx);
+    ASSERT(ind);
+
+    //——————————————————————————————————————————————————————————————————————//
+    // (mode == 0) ≡ (checking for redeclaration  - macro _ON_REDECLARAION) //
+    // (mode == 1) ≡ (checking for initialization - macro _ON_INIT)         //
+    //——————————————————————————————————————————————————————————————————————//
+
+    //---------------------------------------------------------------//
+
+    stack_t        id_stack = ctx->id_stack;
+    name_t*        names    = ctx->name_table.names;
+    identifier_t*  ids      = ctx->name_table.ids;
+
+    //---------------------------------------------------------------//
+
+    for (int id_ind = 0; id_ind < id_stack.top; id_ind++)
+    {
+        if (strcmp(names[*ind].name, ids[id_stack.data[id_ind]].name) == 0)
+        {
+            if (mode == 0) return LANG_REDECLARATION_ERROR;
+
+    //————————————————————————————————————————————————————————————————————//
+    // If there are two variables with same names in differenet scopes,   //
+    // ind != id_stack.data[id_ind] because id_ind is an index in array   //
+    // names. But we need to know index in array ids for further          //
+    // compiling in backend, because memory addres depends on that index. //
+    //————————————————————————————————————————————————————————————————————//
+
+            *ind = id_stack.data[id_ind];
+
+            return LANG_SUCCESS;
+        }
+    }
+
+    //---------------------------------------------------------------//
+
+    if (mode == 0) return LANG_SUCCESS;
+
+    return LANG_NOT_INIT_ERROR;
+}
+
+//===================================================================//
 
 lang_status_t syntax_analysis(lang_ctx_t* ctx)
 {
@@ -157,7 +206,7 @@ lang_status_t get_func_declaration(lang_ctx_t* ctx, node_t** ret_node)
     (*ret_node)->left = _CURRENT_NODE;
     _CHECK_TYPE(IDENTIFIER);
 
-    VERIFY(check_var(ctx, _ID_IND((*ret_node)->left), _ON_REDECLARATION),
+    VERIFY(check_var(ctx, &_ID_IND((*ret_node)->left), _ON_REDECLARATION),
            _REDECLARATION_MESSAGE((*ret_node)->left));
 
     VERIFY(add_new_id(ctx, FUNC, (*ret_node)->left, true),
@@ -248,7 +297,7 @@ lang_status_t get_func_params(lang_ctx_t* ctx, node_t** ret_node,
 
     _CHECK_TYPE(IDENTIFIER);
 
-    VERIFY(check_var(ctx, _ID_IND(_CURRENT_NODE), _ON_REDECLARATION),
+    VERIFY(check_var(ctx, &_ID_IND(_CURRENT_NODE), _ON_REDECLARATION),
            _REDECLARATION_MESSAGE(_CURRENT_NODE));
 
     VERIFY(add_new_id(ctx, VAR, (*ret_node)->left->left, false),
@@ -289,7 +338,7 @@ lang_status_t get_var_declaration(lang_ctx_t* ctx, node_t** ret_node, bool is_gl
 
     node_t* var_name = _CURRENT_NODE;
     _CHECK_TYPE(IDENTIFIER);
-    VERIFY(check_var(ctx, _ID_IND(_CURRENT_NODE), _ON_REDECLARATION),
+    VERIFY(check_var(ctx, &_ID_IND(_CURRENT_NODE), _ON_REDECLARATION),
            _REDECLARATION_MESSAGE(_CURRENT_NODE));
     _NEXT_POS
 
@@ -306,9 +355,9 @@ lang_status_t get_var_declaration(lang_ctx_t* ctx, node_t** ret_node, bool is_gl
 
     //---------------------------------------------------------------//
 
-    var_declaration->left = var_name;
-    assignment->left      = var_declaration;
-    *ret_node = assignment;
+    var_declaration->left = assignment;
+    assignment->left      = var_name;
+    *ret_node = var_declaration;
 
     //---------------------------------------------------------------//
 
@@ -637,6 +686,9 @@ lang_status_t get_scan(lang_ctx_t* ctx, node_t** ret_node)
 
     if (_ID(_CURRENT_NODE).type != VAR) { _EXPECTED("var"); }
 
+    VERIFY(check_var(ctx, &_ID_IND(_CURRENT_NODE), _ON_INITED),
+           _NOT_INIT_ERROR);
+
     (*ret_node)->left->left = _CURRENT_NODE;
 
     _NEXT_POS
@@ -702,7 +754,7 @@ lang_status_t get_call(lang_ctx_t* ctx, node_t** ret_node)
 
     if (_CURRENT_ID.type != FUNC) { _EXPECTED("func"); }
 
-    VERIFY(check_var(ctx, _ID_IND(_CURRENT_NODE), _ON_INITED),
+    VERIFY(check_var(ctx, &_ID_IND(_CURRENT_NODE), _ON_INITED),
            _NOT_INIT_ERROR);
 
     (*ret_node)->left = _CURRENT_NODE;
@@ -858,7 +910,7 @@ lang_status_t get_single_expression(lang_ctx_t* ctx, node_t** ret_node)
     {
         if (!_IS_ID_TYPE(VAR)) { _EXPECTED("VAR"); }
 
-        VERIFY(check_var(ctx, _ID_IND(_CURRENT_NODE), _ON_INITED),
+        VERIFY(check_var(ctx, &_ID_IND(_CURRENT_NODE), _ON_INITED),
                _NOT_INIT_ERROR);
 
         *ret_node = _CURRENT_NODE;
@@ -914,6 +966,8 @@ lang_status_t add_new_id(lang_ctx_t*       ctx,
                .n_params  = 0,
                .is_inited = true,
                .is_global = is_global};
+
+    node->value.id_index = ctx->name_table.n_ids;
 
     stack_push(ctx, ctx->name_table.n_ids);
     ctx->name_table.n_ids++;
@@ -978,39 +1032,6 @@ lang_status_t push_new_id_counter(lang_ctx_t* ctx)
     //---------------------------------------------------------------//
 
     return LANG_SUCCESS;
-}
-
-//===================================================================//
-
-lang_status_t check_var(lang_ctx_t* ctx, size_t ind, int mode)
-{
-    ASSERT(ctx);
-
-    //---------------------------------------------------------------//
-
-    stack_t        id_stack = ctx->id_stack;
-    name_t*        names    = ctx->name_table.names;
-    identifier_t*  ids      = ctx->name_table.ids;
-
-    //---------------------------------------------------------------//
-
-    for (int i = 0; i < id_stack.top; i++)
-    {
-        if (strcmp(names[ind].name, ids[id_stack.data[i]].name) == 0)
-        {
-            if (mode == 0) // _ON_REDECLARATION
-                return LANG_REDECLARATION_ERROR;
-            else           // _ON_INITED
-                return LANG_SUCCESS;
-        }
-    }
-
-    //---------------------------------------------------------------//
-
-    if (mode == 0) // _ON_REDECLARATION
-        return LANG_SUCCESS;
-    else           // _ON_INITED
-        return LANG_NOT_INIT_ERROR;
 }
 
 //===================================================================//

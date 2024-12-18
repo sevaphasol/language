@@ -16,7 +16,6 @@
 #define _CURRENT_NODE ctx->nodes[ctx->pos]
 #define _CURRENT_ID   _ID(_CURRENT_NODE)
 #define _CURRENT_OP   OperatorsTable[_CURRENT_NODE->value.operator_code]
-#define _PRINT(...)   fprintf(ctx->output_file, ##__VA_ARGS__)
 
 //-------------------------------------------------------------------//
 
@@ -26,9 +25,6 @@
 //===================================================================//
 
 #define _SYNTAX_ERROR(...)                                            \
-                                                                      \
-    fprintf(stderr, _GREEN("\nDEBUG in %s:%d:%s\n\n"),                \
-                    __FILE__, __LINE__, __PRETTY_FUNCTION__);         \
                                                                       \
     fprintf(stderr, _RED("syntax error")                              \
                     " in line "                                       \
@@ -122,20 +118,36 @@
 
 //===================================================================//
 
-#define _IS_OPERATOR(__operator_code__)                               \
+#define _NODE_IS_OPERATOR(__node__, __operator_code__)                \
                                                                       \
-    (_CURRENT_NODE->value_type          == OPERATOR &&                \
-    _CURRENT_NODE->value.operator_code  == __operator_code__)         \
+    (__node__->value_type          == OPERATOR &&                     \
+     __node__->value.operator_code == __operator_code__)              \
+
+//===================================================================//
+
+#define _IS_OPERATOR(__operator_code__)                               \
+    _NODE_IS_OPERATOR(_CURRENT_NODE, __operator_code__)               \
+
+//===================================================================//
+
+#define _NODE_IS_TYPE(__node__, __type__)                             \
+    (__node__->value_type == __type__)                                \
 
 //===================================================================//
 
 #define _IS_TYPE(__type__)                                            \
-    (_CURRENT_NODE->value_type == __type__)                           \
+    _NODE_IS_TYPE(_CURRENT_NODE, __type__)                            \
+
+//===================================================================//
+
+#define _NODE_IS_ID_TYPE(__node__, __id_type__)                       \
+    (_NODE_IS_TYPE(__node__, IDENTIFIER) &&                           \
+     _ID(__node__).type == __id_type__)                               \
 
 //===================================================================//
 
 #define _IS_ID_TYPE(__id_type__)                                      \
-    (_CURRENT_ID.type == __id_type__)                                 \
+    _NODE_IS_ID_TYPE(_CURRENT_NODE, __id_type__)                      \
 
 //===================================================================//
 
@@ -145,7 +157,14 @@
     VERIFY(ctx->pos > ctx->n_nodes,                                   \
            return LANG_NODES_OVERFLOW_ERROR;)                         \
 
-//-------------------------------------------------------------------//
+//===================================================================//
+
+#define _PRINT(...)                                                   \
+                                                                      \
+    fprintf(ctx->output_file, "%*s", 4*ctx->level, "");               \
+    fprintf(ctx->output_file, ##__VA_ARGS__);                         \
+
+//===================================================================//
 
 #define _POISON            node_ctor(ctx->node_allocator,             \
                                      POISON,                          \
@@ -205,8 +224,12 @@
 #undef _CHECK_OPERATOR
 #undef _CHECK_REDECLARATION
 #undef _REDECLARATION_MESSAGE
+#undef _NODE_IS_OPERATOR
+#undef _NODE_IS_TYPE
+#undef _NODE_IS_ID_TYPE
 #undef _IS_OPERATOR
 #undef _IS_TYPE
+#undef _IS_ID_TYPE
 #undef _ON_REDECLARATION
 #undef _ON_INITED
 

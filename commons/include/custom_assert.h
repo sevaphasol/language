@@ -20,8 +20,6 @@ if (!condition)                                                           \
 #define VERIFY(condition, action)                                         \
 if (condition)                                                            \
 {                                                                         \
-    fprintf(stderr, "%s in %s:%d:%s\n",                                   \
-                    #action, __FILE__, __LINE__, __PRETTY_FUNCTION__);    \
     action;                                                               \
 }                                                                         \
 

@@ -10,7 +10,7 @@ sosal? korobka factorial(krasivaya krosovka n)
 
 sosal? korobka main()
 {
-    sosal? krosovka n = 0
+    sosal? krosovka n = 5
 
     sosal? scan(krasivaya n)
 
