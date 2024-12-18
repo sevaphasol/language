@@ -47,7 +47,7 @@ int main(int argc, const char* argv[])
            lang_ctx_dtor(&ctx);
            return EXIT_FAILURE);
 
-    //---------------------------------------------------------------//
+    //-------------------------------------------------------------------//
 
     VERIFY(syntax_analysis(&ctx),
            lang_ctx_dtor(&ctx);
@@ -89,16 +89,17 @@ lang_status_t name_table_output(lang_ctx_t* ctx)
 
     //---------------------------------------------------------------//
 
-    fprintf(ctx->output_file, "%ld\n", ctx->name_table.n_names);
+    fprintf(ctx->output_file, "%ld\n", ctx->name_table.n_ids);
 
-    for (int i = 0; i < ctx->name_table.n_names; i++)
+    for (int i = 0; i < ctx->name_table.n_ids; i++)
     {
         fprintf(ctx->output_file,
-               "{ %-3d %-10s %-1d %-2d }\n",
-               i,
-               ctx->name_table.table[i].name,
-               ctx->name_table.table[i].type,
-               ctx->name_table.table[i].n_params);
+               "{ %-3ld %-10s %-1d %-1d %-2d }\n",
+               ctx->name_table.ids[i].len,
+               ctx->name_table.ids[i].name,
+               ctx->name_table.ids[i].type,
+               ctx->name_table.ids[i].is_global ? 1 : 0,
+               ctx->name_table.ids[i].n_params);
     }
 
     fputc('\n', ctx->output_file);

@@ -53,7 +53,7 @@ lang_status_t tokenize(lang_ctx_t* ctx)
 
     //---------------------------------------------------------------//
 
-    graph_dump(ctx, ctx->nodes[0], ARR);
+    // graph_dump(ctx, ctx->nodes[0], ARR);
 
     //---------------------------------------------------------------//
 
@@ -143,10 +143,11 @@ lang_status_t get_str_node(lang_ctx_t* ctx,
         }
     }
 
+    size_t len = strlen(str);
+
     for (size_t id_ind = 0; id_ind < ctx->name_table.n_names; id_ind++)
     {
-        if (strncmp(ctx->name_table.table[id_ind].name, str,
-            strlen(str)) == 0)
+        if (strncmp(ctx->name_table.names[id_ind].name, str, len) == 0)
         {
             *ret_node = _IDENTIFIER(id_ind);
 
@@ -154,11 +155,9 @@ lang_status_t get_str_node(lang_ctx_t* ctx,
         }
     }
 
-    ctx->name_table.table[ctx->name_table.n_names++] =
-                                    {.type      = UNKNOWN,
+    ctx->name_table.names[ctx->name_table.n_names++] = {
                                      .name      = strdup(str),
-                                     .len       = strlen(str),
-                                     .is_inited = false};
+                                     .len       = len};
 
     //---------------------------------------------------------------//
 
