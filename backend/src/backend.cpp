@@ -8,7 +8,6 @@
 #include "graph_dump.h"
 #include "node_allocator.h"
 #include "io_interaction.h"
-#include "backend.h"
 
 //———————————————————————————————————————————————————————————————————//
 
@@ -24,8 +23,6 @@ static lang_status_t asm_globals(lang_ctx_t* ctx);
 int main(int argc, const char* argv[])
 {
     lang_ctx_t ctx = {};
-
-    //-------------------------------------------------------------------//
 
     node_allocator_t node_allocator;
     ctx.node_allocator = &node_allocator;
@@ -78,7 +75,7 @@ lang_status_t asm_code(lang_ctx_t* ctx)
         return LANG_ASM_NODE_ERROR);
 
     fprintf(ctx->output_file, "push %ld\n"
-                              "pop BX\n"
+                              "pop BP\n"
                               "call main:\n"
                               "hlt\n\n",
                               ctx->n_globals);
@@ -126,42 +123,42 @@ lang_status_t read_name_table(lang_ctx_t* ctx)
     //-------------------------------------------------------------------//
 
     int n_chars = 0;
-    size_t n_name_tables = 0;
-
-    sscanf(ctx->code, "%ld%n", &n_name_tables, &n_chars);
-    ctx->code += n_chars;
 
     //-------------------------------------------------------------------//
 
     size_t n_ids = 0;
     sscanf(ctx->code, "%ld%n", &n_ids, &n_chars);
     ctx->code += n_chars;
+    ctx->name_table.n_ids = n_ids;
 
-    ctx->name_table.table = (identifier_t*) calloc(n_ids, sizeof(identifier_t));
-    VERIFY(!ctx->name_table.table,
+    ctx->name_table.ids = (identifier_t*) calloc(n_ids, sizeof(identifier_t));
+    VERIFY(!ctx->name_table.ids,
            return LANG_STD_ALLOCATE_ERROR);
 
     int  id_index = 0;
     char buf[MaxStrLength] = {};
     int type = 0;
     int n_params = 0;
+    int is_global;
 
     for (int i = 0; i < n_ids; i++)
     {
         int nchars = 0;
 
-        sscanf(ctx->code, " { %d %s %d %d } %n",
+        sscanf(ctx->code, " { %d %s %d %d %d } %n",
                           &id_index,
                           buf,
                           &type,
                           &n_params,
+                          &is_global,
                           &nchars);
 
         ctx->code += nchars;
 
-        ctx->name_table.table[id_index].type     = (identifier_type_t) type;
-        ctx->name_table.table[id_index].n_params = n_params;
-        ctx->name_table.table[id_index].name     = strdup(buf);
+        ctx->name_table.ids[i].type      = (identifier_type_t) type;
+        ctx->name_table.ids[i].n_params  = n_params;
+        ctx->name_table.ids[i].name      = strdup(buf);
+        ctx->name_table.ids[i].is_global = is_global;
     }
 
     //-------------------------------------------------------------------//

@@ -7,7 +7,6 @@
 
 //-------------------------------------------------------------------//
 
-#include "operators.h"
 #include "graph_dump.h"
 #include "node_allocator.h"
 #include "custom_assert.h"
@@ -141,11 +140,11 @@ tree_dump_status_t make_elem(lang_ctx_t* ctx, node_t* node, FILE* file)
         {
             const char* id_type = "UNKNOWN";
 
-            if (ctx->name_table.table[node->value.id_index].type == VAR)
+            if (ctx->name_table.ids[node->value.id_index].type == VAR)
             {
                 id_type = "VAR";
             }
-            else if (ctx->name_table.table[node->value.id_index].type == FUNC)
+            else if (ctx->name_table.ids[node->value.id_index].type == FUNC)
             {
                 id_type = "FUNC";
             }
@@ -157,7 +156,7 @@ tree_dump_status_t make_elem(lang_ctx_t* ctx, node_t* node, FILE* file)
                           node,
                           "IDENTIFIER",
                           id_type,
-                          ctx->name_table.table[node->value.id_index].name,
+                          ctx->name_table.ids[node->value.id_index].name,
                           node->value.id_index);
             break;
         }

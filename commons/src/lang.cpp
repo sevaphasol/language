@@ -44,24 +44,28 @@ lang_status_t lang_ctx_ctor(lang_ctx_t* ctx,
 
     //---------------------------------------------------------------//
 
-    ctx->name_table.table = (identifier_t*) calloc(ctx->input_size,
+    ctx->name_table.ids = (identifier_t*) calloc(ctx->input_size,
                                                    sizeof(identifier_t));
 
-    ctx->name_table.id_stack.data = (size_t*) calloc(ctx->input_size,
+    ctx->name_table.names = (name_t*) calloc(ctx->input_size,
+                                                   sizeof(identifier_t));
+
+    ctx->id_stack.data = (size_t*) calloc(ctx->input_size,
                                                      sizeof(identifier_t));
 
-    ctx->name_table.id_stack.size = ctx->input_size;
+    ctx->id_stack.size = ctx->input_size;
 
-    ctx->name_table.n_ids_stack.data = (size_t*) calloc(ctx->input_size,
+    ctx->id_counter_stack.data = (size_t*) calloc(ctx->input_size,
                                                      sizeof(identifier_t));
 
-    ctx->name_table.n_ids_stack.size = ctx->input_size;
+    ctx->id_counter_stack.size = ctx->input_size;
 
-    VERIFY(!ctx->name_table.table,
-           return LANG_STD_ALLOCATE_ERROR);
+    // VERIFY(!ctx->name_table.ids,
+        //    return LANG_STD_ALLOCATE_ERROR);
 
     ctx->name_table.n_names = 0;
-
+    ctx->n_globals = 0;
+    ctx->n_locals = 0;
     //---------------------------------------------------------------//
 
     VERIFY(node_allocator_ctor(ctx->node_allocator,
@@ -90,16 +94,16 @@ lang_status_t lang_ctx_dtor(lang_ctx_t* ctx)
 
     //----------------------------------------------------------------//
 
-    for (int id_ind = 0; id_ind < ctx->name_table.n_names; id_ind++)
-    {
-        char* str = ctx->name_table.table[id_ind].name;
-
-        if (str) free(str);
-    }
+//     for (int id_ind = 0; id_ind < ctx->name_table.n_names; id_ind++)
+//     {
+//         char* str = ctx->name_table.ids[id_ind].name;
+//
+//         if (str) free(str);
+//     }
 
     //----------------------------------------------------------------//
 
-    if (ctx->name_table.table) free(ctx->name_table.table);
+    // if (ctx->name_table.table) free(ctx->name_table.table);
 
     //----------------------------------------------------------------//
 

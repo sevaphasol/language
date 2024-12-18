@@ -20,6 +20,7 @@ node_allocator_status_t node_allocator_ctor(node_allocator_t* allocator,
 
     //-------------------------------------------------------------------//
 
+    allocator->n_arrays  = 1;
     allocator->big_array = (node_t**) calloc(allocator->n_arrays, sizeof(node_t**));
     VERIFY(!allocator->big_array,
            return NODE_ALLOCATOR_STD_CALLOC_ERROR);
@@ -27,8 +28,6 @@ node_allocator_status_t node_allocator_ctor(node_allocator_t* allocator,
     //-------------------------------------------------------------------//
 
     allocator->array_len = array_len;
-
-    allocator->n_arrays  = 1;
     allocator->big_array[0] = (node_t*) calloc(array_len, sizeof(node_t*));
     VERIFY(!allocator->big_array[0],
             return NODE_ALLOCATOR_STD_CALLOC_ERROR);
